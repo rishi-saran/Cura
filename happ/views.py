@@ -375,12 +375,16 @@ def signup_view(request):
 
     return render(request, 'signup.html')
 
-# ✅ User Login View
 def login_view(request):
     if request.method == 'POST':
         username = request.POST['username']
         password = request.POST['password']
-        
+
+        # 🚫 Prevent doctors from logging in here
+        if Doctor.objects.filter(doctor_doctor_id=username).exists():
+            messages.error(request, 'Doctors must log in from the Doctor Login page.')
+            return redirect('login')
+
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
@@ -389,12 +393,11 @@ def login_view(request):
             # Check if the user is new
             user_profile = Profile.objects.get(user=user)
             if user_profile.is_new:
-                user_profile.is_new = False  # ✅ Fix: Mark user as not new
+                user_profile.is_new = False
                 user_profile.save()
                 return redirect('tour')  # ✅ First-time users still get tour
 
             return redirect('famil')  # ✅ Existing users go to home
-
         else:
             messages.error(request, 'Invalid username or password.')
             return redirect('login')
