@@ -1,4 +1,4 @@
-{%load static %}
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -106,7 +106,6 @@
 <body>
     <a href="{% url 'doctor_dashboard' %}" class="back-arrow">&#8592;</a>
 
-
     <h2>{{ user_obj.username }} & Family</h2>
 
     <div class="card-list">
@@ -117,16 +116,38 @@
 
         <!-- Family members -->
         {% if family_members %}
-        {% for member in family_members %}
-        <a href="{% url 'doctor_view_family_journals' member.id %}"
-            class="card {% if forloop.counter == 1 %}highlight{% endif %}">
-            <div class="label">{{ member.name }} ({{ member.relationship }})</div>
-        </a>
-        {% endfor %}
+            {% for member in family_members %}
+            <a href="{% url 'doctor_view_family_journals' member.id %}"
+                class="card {% if forloop.counter == 1 %}highlight{% endif %}">
+                <div class="label">{{ member.name }} ({{ member.relationship }})</div>
+            </a>
+            {% endfor %}
         {% else %}
-        <p class="empty-text">No family members found.</p>
+            <p class="empty-text">No family members found.</p>
         {% endif %}
     </div>
+
+    <!-- Alerts Section -->
+    {% if alert_messages %}
+        <h2 style="margin-top: 40px;">Alerts Triggered</h2>
+        <div class="card-list">
+            {% for alert in alert_messages %}
+            <div class="card" style="background-color: #ffe6e6;">
+                <div>
+                    <div class="label">{{ alert.member }}</div>
+                    <div style="font-size: 14px; color: #a10000; margin-top: 4px;">
+                        {{ alert.message }}
+                    </div>
+                    <div style="font-size: 12px; color: #555;">
+                        🕒 {{ alert.timestamp|date:"d M Y, H:i" }}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="empty-text" style="margin-top: 30px;">✅ No critical alerts triggered recently.</p>
+    {% endif %}
 </body>
 
 </html>

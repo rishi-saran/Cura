@@ -32,10 +32,17 @@ function handleChatbotInput(event) {
 function displayMessage(message, sender) {
     let messageContainer = document.createElement("p");
     messageContainer.className = sender === "user" ? "user-message" : "bot-message";
-    messageContainer.textContent = message;
+
+    if (sender === "bot") {
+        messageContainer.innerHTML = message;  // ✅ Renders HTML correctly
+    } else {
+        messageContainer.textContent = message;  // Plain text for user input
+    }
+
     document.getElementById("chatbot-messages").appendChild(messageContainer);
     scrollToBottom();
 }
+
 
 function showTypingIndicator() {
     let messagesContainer = document.getElementById("chatbot-messages");

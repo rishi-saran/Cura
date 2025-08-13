@@ -24,7 +24,11 @@ from langchain_community.vectorstores import FAISS
 from openai import OpenAI
 from dotenv import load_dotenv
 from django.urls import reverse
-
+from django.utils.html import format_html
+from .utils import format_response_for_chatbot
+from django.utils import timezone
+from datetime import timedelta
+from .models import JournalEntry 
 
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -544,13 +548,12 @@ def chatbot_query(request):
         query = data.get("message", "")
 
         try:
-            # ✅ STEP 1: Fetch user profile
             user_profile = UserProfile.objects.filter(user=request.user).first()
 
             if not user_profile:
                 return JsonResponse({"answer": "⚠️ No user profile found. Please complete your profile first."})
 
-            # ✅ STEP 2: Profile completeness check
+            # Check for missing critical profile fields
             missing = []
             if not user_profile.age or user_profile.age <= 0:
                 missing.append("age")
@@ -564,13 +567,12 @@ def chatbot_query(request):
                     "answer": f"⚠️ Please complete your profile — missing: {', '.join(missing)}."
                 })
 
-            # ✅ STEP 3: Build profile context
+            # Main user context
             context_info = (
                 f"Patient is a {user_profile.age}-year-old {user_profile.gender.lower()} "
                 f"from {user_profile.location}."
             )
 
-            # ✅ STEP 4: Fetch latest journal entry (personal only)
             journal = JournalEntry.objects.filter(
                 user=request.user, family_member__isnull=True
             ).order_by("-timestamp").first()
@@ -579,7 +581,6 @@ def chatbot_query(request):
             critical_alerts = []
 
             if journal:
-                # Mappings
                 pain_map = {
                     "No Pain 😃": 0, "Very Mild Pain 🙂": 1, "Mild Pain 🙂": 2, "Discomfort 😐": 3,
                     "Moderate Pain 😣": 4, "Uncomfortable 😖": 5, "Severe Pain 😢": 6,
@@ -591,7 +592,6 @@ def chatbot_query(request):
                     "Moderate, resolved with rest": 6, "Severe, required attention": 10
                 }
 
-                # Alert triggers
                 pain_score = pain_map.get(journal.pain_level, 0)
                 emergency_score = emergency_map.get(journal.emergency, 0)
 
@@ -609,13 +609,42 @@ def chatbot_query(request):
             else:
                 symptom_info = "No recent journal entry found for this patient."
 
-            # ✅ STEP 5: Enrich query with all data
-            enriched_query = f"{context_info}\n{symptom_info}\n\n{query}"
+            # 🧩 NEW: Add family member data
+            family_data = ""
+            family_critical_alerts = []
+            family_members = FamilyMember.objects.filter(user=request.user)
 
+            for member in family_members:
+                member_context = f"{member.name} is a {member.age}-year-old {member.gender.lower()} from {member.location}."
+                latest_journal = JournalEntry.objects.filter(family_member=member).order_by("-timestamp").first()
+
+                if latest_journal:
+                    pain_score = pain_map.get(latest_journal.chest_pain, 0)
+                    emergency_score = emergency_map.get(latest_journal.emergency, 0)
+                    if pain_score >= 8:
+                        family_critical_alerts.append(f"⚠️ {member.name} has severe chest pain.")
+                    if emergency_score == 10:
+                        family_critical_alerts.append(f"🚨 {member.name} reported emergency-level symptoms.")
+                    member_symptoms = (
+                        f"Symptoms include chest pain: {latest_journal.chest_pain}, "
+                        f"breath: {latest_journal.breath}, energy: {latest_journal.energy_level}, "
+                        f"stress: {latest_journal.stress_level}, swelling: {latest_journal.swelling}, "
+                        f"emergency: {latest_journal.emergency}."
+                    )
+                else:
+                    member_symptoms = "No recent journal entry found."
+
+                family_data += f"\n\nFamily Member:\n{member_context}\n{member_symptoms}"
+
+            # Final enriched query with ALL data
+            enriched_query = f"{context_info}\n{symptom_info}{family_data}\n\n{query}"
+            
+            if family_critical_alerts:
+               critical_alerts.extend(family_critical_alerts)
             if critical_alerts:
                 enriched_query += "\n\nALERTS:\n" + "\n".join(critical_alerts)
 
-            # ✅ STEP 6: Similarity search
+            # Similarity search
             docs = DB.similarity_search(enriched_query, k=3)
 
             if not docs:
@@ -625,7 +654,6 @@ def chatbot_query(request):
 
             context = "\n\n".join([doc.page_content for doc in docs])
 
-            # ✅ STEP 7: GPT Completion
             response = client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
@@ -635,7 +663,7 @@ def chatbot_query(request):
                     },
                     {
                         "role": "user",
-                        "content": f"Context:\n{context}\n\nPatient Info:\n{context_info}\n\nSymptoms:\n{symptom_info}\n\nQuestion: {query}"
+                        "content": f"Context:\n{context}\n\nPatient Info:\n{context_info}\n\nSymptoms:\n{symptom_info}\n\nFamily:\n{family_data}\n\nQuestion: {query}"
                     }
                 ]
             )
@@ -645,15 +673,15 @@ def chatbot_query(request):
             print(f"[CHATBOT QUERY] User: {query}")
             print(f"[CHATBOT RESPONSE] Bot: {answer}")
 
-            return JsonResponse({"answer": answer})
+            formatted_answer = format_response_for_chatbot(answer)
+            return JsonResponse({"answer": formatted_answer})
+
 
         except Exception as e:
             print("❌ Error:", str(e))
             return JsonResponse({
                 "answer": "An internal error occurred while processing your question."
             })
-
-
 @login_required
 def view_single_entry(request, entry_id):
     entry = JournalEntry.objects.filter(id=entry_id).first()
@@ -738,14 +766,52 @@ def view_single_entry(request, entry_id):
         'graph_path': f'/static/journal_graphs/entry_{entry.id}.png'
     })
 
-@login_required
 def view_user_and_family(request, user_id):
     user = get_object_or_404(User, id=user_id)
     family_members = FamilyMember.objects.filter(user=user)
+
+    alert_messages = []
+
+    pain_map = {
+        "No Pain 😃": 0, "Very Mild Pain 🙂": 1, "Mild Pain 🙂": 2, "Discomfort 😐": 3,
+        "Moderate Pain 😣": 4, "Uncomfortable 😖": 5, "Severe Pain 😢": 6,
+        "Very Severe Pain 😭": 7, "Intense Pain 💀": 8, "Extreme Pain 💀💀": 9,
+        "Worst Possible Pain 💀💀💀": 10
+    }
+
+    emergency_map = {
+        "No": 0,
+        "Mild, manageable at home": 3,
+        "Moderate, resolved with rest": 6,
+        "Severe, required attention": 10
+    }
+
+    for member in family_members:
+        latest_entry = JournalEntry.objects.filter(family_member=member).order_by("-timestamp").first()
+        if latest_entry:
+            # FIX: Use pain_level instead of chest_pain
+            pain_score = pain_map.get(latest_entry.pain_level, 0)
+            emergency_score = emergency_map.get(latest_entry.emergency, 0)
+
+            if pain_score >= 8:
+                alert_messages.append({
+                    "member": member.name,
+                    "message": "⚠️ Severe pain reported.",
+                    "timestamp": latest_entry.timestamp
+                })
+            if emergency_score == 10:
+                alert_messages.append({
+                    "member": member.name,
+                    "message": "🚨 Emergency-level symptoms recorded.",
+                    "timestamp": latest_entry.timestamp
+                })
+
     return render(request, 'doctor/user_and_family.html', {
         'user_obj': user,
-        'family_members': family_members
+        'family_members': family_members,
+        'alert_messages': alert_messages
     })
+
 
 
 def doctor_view_journals(request, user_id):
