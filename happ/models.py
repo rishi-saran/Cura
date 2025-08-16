@@ -70,3 +70,22 @@ class JournalEntry(models.Model):
     def __str__(self):
         subject = self.family_member.name if self.family_member else self.user.username
         return f"{subject} – {self.timestamp.strftime('%Y-%m-%d')}"
+    
+class DoctorNote(models.Model):
+    patient        = models.ForeignKey(User, on_delete=models.CASCADE)
+    family_member  = models.ForeignKey('FamilyMember', null=True, blank=True, on_delete=models.CASCADE)
+    doctor         = models.ForeignKey('Doctor', on_delete=models.CASCADE)
+
+    title          = models.CharField(max_length=150, blank=True)
+    medication_name = models.CharField(max_length=150, blank=True)
+    dosage         = models.CharField(max_length=150, blank=True)
+    instructions   = models.TextField(blank=True)
+
+    # Optional link to the exact journal entry this note is about
+    related_entry  = models.ForeignKey('JournalEntry', null=True, blank=True, on_delete=models.SET_NULL)
+
+    timestamp      = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        subject = self.family_member.name if self.family_member else self.patient.username
+        return f"Note for {subject} – {self.timestamp.strftime('%Y-%m-%d %H:%M')}"

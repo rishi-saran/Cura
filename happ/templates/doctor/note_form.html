@@ -1,0 +1,148 @@
+<!-- templates/doctor/note_form.html -->
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  />
+  <title>Add Doctor Note</title>
+  <style>
+    /* Prevent horizontal scroll and respect container width */
+    html, body { max-width:100%; overflow-x:hidden; }
+
+    body {
+      font-family:'Segoe UI', sans-serif;
+      background:#f7f9fc;
+      margin:0;
+      padding:1rem;
+    }
+
+    .wrap {
+      max-width:680px;
+      margin:0 auto;
+      padding: 0 .25rem; /* slight inner padding to avoid edge bleed */
+    }
+
+    .back {
+      font-size:30px;
+      color:#3a2370;
+      text-decoration:none;
+      display:inline-block;
+      padding-left:5px;
+      transition:.2s;
+    }
+    .back:hover { transform:translateX(-4px); }
+
+    h1 { font-size:22px; color:#222; margin:.5rem 0 1rem; }
+    .meta { color:#666; font-size:14px; margin:.3rem 0 1rem; }
+
+    form {
+      background:#fff;
+      border-radius:12px;
+      padding:1rem;
+      box-shadow:0 2px 8px rgba(0,0,0,.07);
+      /* keep all content inside the card */
+      overflow:hidden;
+      word-break:break-word;
+      overflow-wrap:anywhere;
+    }
+
+    .row {
+      margin-bottom:.9rem;
+      /* safety for any long inline content */
+      overflow:hidden;
+    }
+
+    label {
+      display:block;
+      font-weight:600;
+      margin-bottom:.35rem;
+      color:#333;
+    }
+
+    /* Universal sizing: inputs never exceed the card, even with long content */
+    input[type="text"],
+    select,
+    textarea {
+      width:100%;
+      max-width:100%;
+      box-sizing:border-box;
+      padding:.7rem .8rem;
+      border:1px solid #d7d7d7;
+      border-radius:8px;
+      font-size:15px;
+      background:#fff;
+    }
+
+    /* Make the select behave well on small screens */
+    select {
+      display:block;
+      /* While select text can't truly wrap, this ensures the box doesn't overflow */
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    textarea {
+      min-height:110px;
+      resize:vertical; /* allow vertical grow but not sideways */
+    }
+
+    button {
+      width:100%;
+      padding:.9rem;
+      background:#28a745;
+      color:white;
+      border:none;
+      border-radius:10px;
+      font-size:16px;
+      cursor:pointer;
+    }
+    button:hover { opacity:.95; }
+
+    /* Mobile polish */
+    @media (max-width: 480px) {
+      h1 { font-size:20px; }
+      .meta { font-size:13px; }
+      label { font-size:14px; }
+      input[type="text"], select, textarea { font-size:14px; }
+      button { font-size:15px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a href="{{ back_url }}" class="back">&#8592;</a>
+    <h1>Add Note – {{ subject_name }}</h1>
+    <div class="meta">Doctor: {{ doctor.doctor_full_name }}</div>
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="row">
+        <label for="id_title">Title</label>
+        {{ form.title }}
+      </div>
+      <div class="row">
+        <label for="id_medication_name">Medication</label>
+        {{ form.medication_name }}
+      </div>
+      <div class="row">
+        <label for="id_dosage">Dosage</label>
+        {{ form.dosage }}
+      </div>
+      <div class="row">
+        <label for="id_instructions">Instructions / Notes</label>
+        {{ form.instructions }}
+      </div>
+      <div class="row">
+        <label for="id_related_entry">📎 Related Journal Entry (optional)</label>
+        {{ form.related_entry }}
+      </div>
+      <button type="submit">Save Note</button>
+    </form>
+  </div>
+</body>
+</html>

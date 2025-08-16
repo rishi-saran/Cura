@@ -1,5 +1,5 @@
 from django import forms
-from .models import UserProfile, FamilyMember, Doctor
+from .models import UserProfile, FamilyMember, Doctor, DoctorNote
 from django.contrib.auth.models import User
 
 class DoctorSignupForm(forms.ModelForm):
@@ -29,3 +29,15 @@ class FamilyMemberForm(forms.ModelForm):
     class Meta:
         model = FamilyMember
         fields = ['name', 'relationship', 'age', 'gender', 'location', 'photo']
+
+
+class DoctorNoteForm(forms.ModelForm):
+    class Meta:
+        model = DoctorNote
+        fields = ['title', 'medication_name', 'dosage', 'instructions', 'related_entry']
+        widgets = {
+            'title': forms.TextInput(attrs={'placeholder': 'Title (optional)'}),
+            'medication_name': forms.TextInput(attrs={'placeholder': 'e.g., Atorvastatin'}),
+            'dosage': forms.TextInput(attrs={'placeholder': 'e.g., 10 mg once daily'}),
+            'instructions': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Notes / instructions'}),
+        }

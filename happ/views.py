@@ -5,7 +5,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth.models import User
-from .models import UserProfile, FamilyMember, JournalEntry
+from .models import UserProfile, FamilyMember, JournalEntry, DoctorNote
 from django.core.mail import EmailMessage, send_mail
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction 
@@ -28,7 +28,6 @@ from django.utils.html import format_html
 from .utils import format_response_for_chatbot
 from django.utils import timezone
 from datetime import timedelta
-from .models import JournalEntry 
 
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -847,3 +846,105 @@ def doctor_view_family_journals(request, member_id):
         'journal_entries': journal_entries,
     }
     return render(request, 'doctor/doctor_view_family_journals.html', context)
+
+@login_required
+def patient_doctor_notes(request):
+    """Main user’s doctor notes."""
+    profile = get_object_or_404(UserProfile, user=request.user)
+    notes = (DoctorNote.objects
+             .filter(patient=request.user, family_member__isnull=True)
+             .order_by('-timestamp'))
+    return render(request, 'patient/doctor_notes.html', {
+        'profile': profile,
+        'doctor_notes': notes,
+        'is_family': False,
+    })
+
+@login_required
+def patient_family_doctor_notes(request, member_id: int):
+    """Family member doctor notes (for logged-in user)."""
+    member = get_object_or_404(FamilyMember, id=member_id, user=request.user)
+    notes = (DoctorNote.objects
+             .filter(patient=request.user, family_member=member)
+             .order_by('-timestamp'))
+    return render(request, 'patient/doctor_notes.html', {
+        'profile': member,
+        'doctor_notes': notes,
+        'is_family': True,
+    })
+
+def _get_doctor_or_redirect(request):
+    """Return doctor instance for logged-in user or None."""
+    return Doctor.objects.filter(doctor_user=request.user).first()
+
+@login_required(login_url='doctor_login')
+def doctor_add_note_for_user(request, user_id: int):
+    """Create a doctor note for the main user (not a family member)."""
+    doctor = _get_doctor_or_redirect(request)
+    if not doctor:
+        messages.error(request, "Doctor account required.")
+        return redirect('doctor_login')
+
+    patient_user = get_object_or_404(User, id=user_id)
+    # Ensure this doctor is assigned to this patient
+    get_object_or_404(UserProfile, user=patient_user, assigned_doctor=doctor)
+
+    from .forms import DoctorNoteForm  # local import to avoid circulars if any
+    form = DoctorNoteForm(request.POST or None)
+
+    # Limit related_entry to this user’s own entries (no family)
+    form.fields['related_entry'].queryset = JournalEntry.objects.filter(
+        user=patient_user, family_member__isnull=True
+    ).order_by('-timestamp')
+
+    if request.method == 'POST' and form.is_valid():
+        note = form.save(commit=False)
+        note.patient = patient_user
+        note.family_member = None
+        note.doctor = doctor
+        note.save()
+        messages.success(request, "Note saved.")
+        return redirect('doctor_view_journals', user_id=patient_user.id)
+
+    return render(request, 'doctor/note_form.html', {
+        'form': form,
+        'doctor': doctor,
+        'subject_name': patient_user.username,
+        'back_url': reverse('doctor_view_journals', args=[patient_user.id]),
+    })
+
+@login_required(login_url='doctor_login')
+def doctor_add_note_for_family(request, member_id: int):
+    """Create a doctor note for a family member of a patient."""
+    doctor = _get_doctor_or_redirect(request)
+    if not doctor:
+        messages.error(request, "Doctor account required.")
+        return redirect('doctor_login')
+
+    member = get_object_or_404(FamilyMember, id=member_id)
+    # Ensure the doctor is assigned to the member's main user
+    get_object_or_404(UserProfile, user=member.user, assigned_doctor=doctor)
+
+    from .forms import DoctorNoteForm
+    form = DoctorNoteForm(request.POST or None)
+
+    # Limit related_entry to this member’s entries
+    form.fields['related_entry'].queryset = JournalEntry.objects.filter(
+        user=member.user, family_member=member
+    ).order_by('-timestamp')
+
+    if request.method == 'POST' and form.is_valid():
+        note = form.save(commit=False)
+        note.patient = member.user
+        note.family_member = member
+        note.doctor = doctor
+        note.save()
+        messages.success(request, "Note saved.")
+        return redirect('doctor_view_family_journals', member_id=member.id)
+
+    return render(request, 'doctor/note_form.html', {
+        'form': form,
+        'doctor': doctor,
+        'subject_name': f"{member.name} ({member.relationship})",
+        'back_url': reverse('doctor_view_family_journals', args=[member.id]),
+    })

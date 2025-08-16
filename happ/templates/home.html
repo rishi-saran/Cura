@@ -1,37 +1,39 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0" />
   <title>{{ user_profile.name|default:user.username }}'s Home</title>
   <link rel="stylesheet" href="{% static 'assets/css/styles.css' %}" />
 </head>
+
 <body>
   <div class="container">
     <!-- ─── Header Section ───────────────────── -->
     <div class="header">
       <h1>
-        👋 Hi 
+        👋 Hi
         {% if is_family %}
-          {{ user_profile.name }} ({{ user_profile.relationship }})
+        {{ user_profile.name }} ({{ user_profile.relationship }})
         {% else %}
-          {{ user_profile.name|default:user.username }}
+        {{ user_profile.name|default:user.username }}
         {% endif %}
       </h1>
 
       {% if assigned_doctor %}
-        <p class="doctor-info">
-          Your doctor: Dr. {{ assigned_doctor.doctor_full_name }} ({{ assigned_doctor.doctor_speciality }})
-        </p>
+      <p class="doctor-info">
+        Your doctor: Dr. {{ assigned_doctor.doctor_full_name }} ({{ assigned_doctor.doctor_speciality }})
+      </p>
       {% else %}
-        <p class="doctor-info">No doctor assigned yet.</p>
+      <p class="doctor-info">No doctor assigned yet.</p>
       {% endif %}
 
       {% if user_profile.photo %}
-        <img src="{{ user_profile.photo.url }}" alt="Profile Picture" />
+      <img src="{{ user_profile.photo.url }}" alt="Profile Picture" />
       {% else %}
-        <img src="{% static 'assets/images/profile.png' %}" alt="Profile Picture" />
+      <img src="{% static 'assets/images/profile.png' %}" alt="Profile Picture" />
       {% endif %}
     </div>
 
@@ -45,32 +47,43 @@
         <h3>Medications</h3>
         <img src="{% static 'assets/images/medi.png' %}" alt="Medi" />
       </a>
-      <div class="family-card">
+      {% if is_family %}
+      <!-- On a family member dashboard -->
+      <a href="{% url 'patient_family_doctor_notes' user_profile.id %}" class="family-card">
         <h3>Doctor Notes</h3>
         <img src="{% static 'assets/images/notes.png' %}" alt="Notes" />
-      </div>
+      </a>
+      {% else %}
+      <!-- On the main user's dashboard -->
+      <a href="{% url 'patient_doctor_notes' %}" class="family-card">
+        <h3>Doctor Notes</h3>
+        <img src="{% static 'assets/images/notes.png' %}" alt="Notes" />
+      </a>
+      {% endif %}
+
+
       <div class="family-card">
         <h3>Online Chat</h3>
         <img src="{% static 'assets/images/chat.png' %}" alt="Chat" />
       </div>
 
       {% if is_family %}
-        <a href="{% url 'family_journal' user_profile.id %}" class="family-card">
-      {% else %}
+      <a href="{% url 'family_journal' user_profile.id %}" class="family-card">
+        {% else %}
         <a href="{% url 'journal' %}" class="family-card">
-      {% endif %}
+          {% endif %}
           <h3>My Journal</h3>
           <img src="{% static 'assets/images/jour.png' %}" alt="Papers" />
         </a>
 
-      <a href="{% url 'appointments' %}" class="family-card">
-        <h3>Appointments</h3>
-        <img src="{% static 'assets/images/appoint.png' %}" alt="Papers" />
-      </a>
-      <a href="{% url 'activity' %}" class="family-card">
-        <h3>My Activity</h3>
-        <img src="{% static 'assets/images/acti.png' %}" alt="Papers" />
-      </a>
+        <a href="{% url 'appointments' %}" class="family-card">
+          <h3>Appointments</h3>
+          <img src="{% static 'assets/images/appoint.png' %}" alt="Papers" />
+        </a>
+        <a href="{% url 'activity' %}" class="family-card">
+          <h3>My Activity</h3>
+          <img src="{% static 'assets/images/acti.png' %}" alt="Papers" />
+        </a>
     </div>
   </div>
 
@@ -86,4 +99,5 @@
   <script src="{% static 'assets/js/scripts.js' %}"></script>
   {% include 'chatbot.html' %}
 </body>
+
 </html>

@@ -1,0 +1,64 @@
+{% load static %}
+<!-- templates/patient/doctor_notes.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  />
+  <title>Doctor Notes – {{ profile.name|default:profile }}</title>
+  <style>
+    html, body { max-width: 100%; overflow-x: hidden; }
+    body { font-family: 'Segoe UI', sans-serif; background:#f5f7fa; margin:0; padding:1.2rem; }
+    .back-arrow { font-size:30px; text-decoration:none; color:#3a2370; display:inline-block; padding-left:5px; transition:.2s; }
+    .back-arrow:hover { transform: translateX(-4px); }
+    h2 { color:#222; font-size:22px; margin:0.5rem 0 1.2rem; }
+    .note-card { background:#fff; border-left:4px solid #6c63ff; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.06); padding:1rem 1.2rem; margin-bottom:1rem; }
+    .note-title { font-weight:700; margin:0 0 .3rem; color:#222; }
+    .meta { color:#666; font-size:13px; margin-bottom:.4rem; }
+    .field { margin:.2rem 0; }
+    .clip { color:#007bff; text-decoration:none; font-size:14px; }
+    .clip:hover { text-decoration:underline; }
+    @media (max-width: 600px) {
+      h2 { font-size:20px; }
+      .clip { font-size:13px; }
+    }
+  </style>
+</head>
+<body>
+  <span class="back-arrow" onclick="window.history.back()">&#8592;</span>
+
+  <h2>Doctor Notes – {{ profile.name|default:profile }}</h2>
+
+  {% if doctor_notes %}
+    {% for note in doctor_notes %}
+      <div class="note-card">
+        {% if note.title %}<div class="note-title">{{ note.title }}</div>{% endif %}
+        <div class="meta">🕒 {{ note.timestamp|date:"Y-m-d H:i" }}</div>
+
+        {% if note.medication_name %}
+          <div class="field"><strong>Medication:</strong> {{ note.medication_name }}</div>
+        {% endif %}
+        {% if note.dosage %}
+          <div class="field"><strong>Dosage:</strong> {{ note.dosage }}</div>
+        {% endif %}
+        {% if note.instructions %}
+          <div class="field"><strong>Instructions:</strong> {{ note.instructions }}</div>
+        {% endif %}
+
+        {% if note.related_entry %}
+          <div class="field">
+            <a class="clip" href="{% url 'view_single_entry' note.related_entry.id %}">
+              📎 Related Journal Entry
+            </a>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <p style="color:#666;">No doctor notes yet.</p>
+  {% endif %}
+</body>
+</html>

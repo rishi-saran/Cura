@@ -55,6 +55,14 @@ urlpatterns = [
     path('doctor/user/<int:user_id>/journals/', views.doctor_view_journals, name='doctor_view_journals'),
     path('doctor/family/<int:member_id>/journals/', views.doctor_view_family_journals, name='doctor_view_family_journals'),
 
+    # Patient-side doctor notes
+    path('notes/', views.patient_doctor_notes, name='patient_doctor_notes'),
+    path('notes/family/<int:member_id>/', views.patient_family_doctor_notes, name='patient_family_doctor_notes'),
+
+
+    # Doctor-side create note
+    path('doctor/user/<int:user_id>/notes/new/', views.doctor_add_note_for_user, name='doctor_add_note_for_user'),
+    path('doctor/family/<int:member_id>/notes/new/', views.doctor_add_note_for_family, name='doctor_add_note_for_family'),
 
     # ✅ Firebase Push Notification + Chatbot
     path('save-token/', views.save_token, name='save-token'),

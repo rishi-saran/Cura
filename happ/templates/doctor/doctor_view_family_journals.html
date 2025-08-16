@@ -1,109 +1,45 @@
+{% load static %}
+<!-- templates/doctor/doctor_view_family_journals.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>{{ member.name }}'s Journal Entries</title>
-    <style>
-        html, body {
-            max-width: 100%;
-            overflow-x: hidden;
-        }
-
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background-color: #f5f7fa;
-            padding: 1.2rem;
-            margin: 0;
-        }
-
-        h2 {
-            color: #222;
-            font-size: 22px;
-            margin-bottom: 1.5rem;
-        }
-
-        .entry-card {
-            background: white;
-            border-left: 4px solid #28a745;
-            margin-bottom: 1rem;
-            padding: 1rem 1.2rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-        }
-
-        .entry-card strong {
-            display: inline-block;
-            margin-bottom: 0.25rem;
-            font-size: 15px;
-        }
-
-        .entry-card br {
-            margin-bottom: 0.25rem;
-        }
-
-        .entry-card span {
-            font-size: 15px;
-        }
-
-        a.view-link {
-            display: inline-block;
-            margin-top: 0.5rem;
-            font-size: 14px;
-            text-decoration: none;
-            color: #007bff;
-        }
-
-        a.view-link:hover {
-            text-decoration: underline;
-        }
-
-        @media (max-width: 600px) {
-            h2 {
-                font-size: 20px;
-            }
-
-            .entry-card {
-                padding: 0.9rem 1rem;
-            }
-
-            .entry-card strong,
-            .entry-card span,
-            a.view-link {
-                font-size: 14px;
-            }
-        }
-
-         .back-arrow {
-            font-size: 30px;
-            text-decoration: none;
-            color: #3a2370;
-            display: inline-block;
-            padding-left: 5px;
-            transition: transform 0.2s ease;
-        }
-
-        .back-arrow:hover {
-            transform: translateX(-4px);
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  />
+  <title>{{ member.name }}'s Journal Entries</title>
+  <style>
+    html, body { max-width:100%; overflow-x:hidden; }
+    body { font-family:sans-serif; background:#f5f7fa; padding:1.2rem; margin:0; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+    .back-arrow { font-size:30px; color:#3a2370; text-decoration:none; padding-left:5px; transition:.2s; }
+    .back-arrow:hover { transform:translateX(-4px); }
+    .btn { padding:.6rem .9rem; background:#28a745; color:#fff; border-radius:8px; text-decoration:none; font-weight:600; }
+    h2 { color:#333; font-size:22px; margin:0; }
+    .entry-card { background:#fff; border-left:5px solid #28a745; margin-bottom:1rem; padding:1rem; box-shadow:0 2px 5px rgba(0,0,0,0.05); border-radius:8px; }
+    a.view-link { display:inline-block; margin-top:.5rem; text-decoration:none; color:#007bff; }
+    a.view-link:hover { text-decoration:underline; }
+  </style>
 </head>
 <body>
-     <span class="back-arrow" onclick="window.history.back()">&#8592;</span>
+  <div class="topbar">
+    <a href="{% url 'view_user_and_family' member.user.id %}" class="back-arrow">&#8592;</a>
     <h2>Journal Entries – {{ member.name }} ({{ member.relationship }})</h2>
+    <a class="btn" href="{% url 'doctor_add_note_for_family' member.id %}">Give Notes</a>
+  </div>
 
-    {% if journal_entries %}
-        {% for entry in journal_entries %}
-            <div class="entry-card">
-                <strong>Date:</strong> {{ entry.timestamp|date:"Y-m-d H:i" }}<br>
-                <strong>Pain Level:</strong> {{ entry.pain_level }}<br>
-                <strong>Energy Level:</strong> {{ entry.energy_level }}<br>
-                <a class="view-link" href="{% url 'view_single_entry' entry.id %}">📈 View Full Entry with Graph</a>
-            </div>
-        {% endfor %}
-    {% else %}
-        <p>No journal entries found for {{ member.name }}.</p>
-    {% endif %}
-
+  {% if journal_entries %}
+    {% for entry in journal_entries %}
+      <div class="entry-card">
+        <strong>Date:</strong> {{ entry.timestamp|date:"Y-m-d H:i" }}<br>
+        <strong>Pain Level:</strong> {{ entry.pain_level }}<br>
+        <strong>Energy Level:</strong> {{ entry.energy_level }}<br>
+        <a class="view-link" href="{% url 'view_single_entry' entry.id %}">📈 View Full Entry with Graph</a>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p>No journal entries found for {{ member.name }}.</p>
+  {% endif %}
 </body>
 </html>
