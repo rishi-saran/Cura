@@ -48,23 +48,23 @@
         <div class="claimables-section">
             <h3>Claimables</h3>
 
-            <!-- render tiers from view context -->
+            <!-- render tiers from view context as gift cards (no QR) -->
             {% for tier in tiers %}
               <div class="voucher {% if tier.unlocked %}unlocked{% else %}locked{% endif %}">
                 <div class="voucher-left">
-                  <h4>{{ tier.title }}</h4>
-                  <p class="voucher-type">{{ tier.points }} pts</p>
+                  <h4>🎁 {{ tier.title }}</h4>
+                  <p class="voucher-type">{{ tier.points }} pts • Gift Card</p>
                 </div>
                 <div class="voucher-right">
-                  <img src="{% static 'assets/images/qr.png' %}" alt="QR Code" class="qr-image">
                   {% if tier.unlocked %}
                     {% if tier.claimed %}
                       <span class="voucher-price">✅ Claimed</span>
                     {% else %}
                       {% if tier.id %}
-                        <a class="claim-link" href="{% url 'claim_reward' tier.id %}">Claim now</a>
+                        <a class="claim-link" href="{% url 'claim_reward' tier.id %}">Claim gift</a>
                       {% else %}
-                        <span class="voucher-price">Unlocked 🎉</span>
+                        <button type="button" style="width:50px; background-color:black; color:white; border-radius: 20px;">Claim</button>
+                        <span class="voucher-price">🎉</span>
                       {% endif %}
                     {% endif %}
                   {% else %}
