@@ -55,6 +55,15 @@
     </div>
 
     <script src="{% static 'assets/js/scripts.js' %}"></script>
-    {% include 'chatbot.html' %}
+    {% include 'chatbot.html'%}
+
+{% if messages %}
+  {% for message in messages %}
+    <script>
+      alert("{{ message|escapejs }}");
+    </script>
+  {% endfor %}
+{% endif %}
+    
 </body>
 </html>

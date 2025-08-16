@@ -1,4 +1,3 @@
-
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
@@ -13,50 +12,77 @@
     <div class="container">
         <header class="header">
             <h1>My Rewards</h1>
-            <div class="xp">XP 200</div>
+            <!-- dynamic total XP -->
+            <div class="xp">XP {{ total_points|default:0 }}</div>
         </header>
+
+        <!-- show any alerts (e.g., “+50 points added”, “rewards unlocked”) -->
+        {% if messages %}
+          <div class="messages">
+            {% for message in messages %}
+              <div id="msg" class="alert {% if message.tags %}{{ message.tags }}{% endif %}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
 
         <div class="profile-section">
             <div class="profile-image">
                 <img src="{% static 'assets/images/father.png' %}" alt="Profile Picture">
                 <div class="edit-icon">✏️</div>
             </div>
-            <h2>Steven</h2>
-            <p>steven@mail.com</p>
+            <!-- dynamic name & email; falls back to user -->
+            <h2>{{ profile.name|default:request.user.username }}</h2>
+            <p>{{ profile.email|default:request.user.email }}</p>
+
+            <!-- claim today’s +50 if not already checked in -->
+            {% if not today_checked_in %}
+              <form action="{% url 'rewards_checkin' %}" method="post" style="margin-top:10px;">
+                {% csrf_token %}
+                <button type="submit" class="claim-btn">Claim today’s +50</button>
+              </form>
+            {% else %}
+              <p style="margin-top:10px;">✅ Today's +50 claimed</p>
+            {% endif %}
         </div>
 
         <div class="claimables-section">
             <h3>Claimables</h3>
-            
-            <div class="voucher">
-                <div class="voucher-left">
-                    <h4>XXX</h4>
-                    <p class="voucher-type">Vouchers</p>
-                </div>
-                <div class="voucher-right">
-                    <img src="{% static 'assets/images/qr.png' %}" alt="QR Code" class="qr-image">
-                    <span class="voucher-price">$30</span>
-                </div>
-            </div>
 
-            <div class="voucher">
+            <!-- render tiers from view context -->
+            {% for tier in tiers %}
+              <div class="voucher {% if tier.unlocked %}unlocked{% else %}locked{% endif %}">
                 <div class="voucher-left">
-                    <h4>YYY</h4>
-                    <p class="voucher-type">Vouchers</p>
+                  <h4>{{ tier.title }}</h4>
+                  <p class="voucher-type">{{ tier.points }} pts</p>
                 </div>
                 <div class="voucher-right">
-                    <img src="{% static 'assets/images/qr.png' %}" alt="QR Code" class="qr-image">
-                    <span class="voucher-price">$20</span>
+                  <img src="{% static 'assets/images/qr.png' %}" alt="QR Code" class="qr-image">
+                  {% if tier.unlocked %}
+                    {% if tier.claimed %}
+                      <span class="voucher-price">✅ Claimed</span>
+                    {% else %}
+                      {% if tier.id %}
+                        <a class="claim-link" href="{% url 'claim_reward' tier.id %}">Claim now</a>
+                      {% else %}
+                        <span class="voucher-price">Unlocked 🎉</span>
+                      {% endif %}
+                    {% endif %}
+                  {% else %}
+                    <span class="voucher-price">{{ tier.remaining }} to go</span>
+                  {% endif %}
                 </div>
-            </div>
+              </div>
+            {% empty %}
+              <p>No rewards configured yet.</p>
+            {% endfor %}
         </div>
     </div>
 
     <div class="bottom-nav">
-        <a href="{% url 'famil'%}"><img src="{% static 'assets/images/navbar/modules.png' %}"></a>
-        <a href="{% url 'leaderboard'%}"><img src="{% static 'assets/images/navbar/graph.png' %}"></a>
+        <a href="{% url 'famil' %}"><img src="{% static 'assets/images/navbar/modules-active.png' %}"></a>
+        <a href="{% url 'leaderboard' %}"><img src="{% static 'assets/images/navbar/graph.png' %}"></a>
         <a href="{% url 'notifications' %}"><img src="{% static 'assets/images/navbar/bell.png' %}"></a>
-        <a href="{% url 'settings'%}"><img src="{% static 'assets/images/navbar/settings-active.png' %}"></a>
+        <a href="{% url 'settings' %}"><img src="{% static 'assets/images/navbar/settings.png' %}"></a>
     </div>
 
     <script src="{% static 'assets/js/scripts.js' %}"></script>

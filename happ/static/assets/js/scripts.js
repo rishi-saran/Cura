@@ -157,3 +157,4 @@ document.addEventListener("DOMContentLoaded", function () {
         reminderBox.style.display = "none"; // Hides the reminder box
     });
 });
+

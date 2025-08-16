@@ -154,22 +154,22 @@ body {
 .voucher-left h4 {
     margin: 0;
     color: #3D2174;
-    font-size: 1rem;
-    font-weight: 600;
+    font-size: 1.2rem;
+    font-weight: 100;
 }
 
 .voucher-type {
     margin: 5px 0 0;
     color: #6D5BA4;
     font-size: 0.9rem;
-    font-weight: 600;
+    font-weight: 100;
 }
 
 /* QR Code and Price: Proper Alignment */
 .voucher-right {
     display: flex;
     align-items: center;
-    gap: 10px; /* Adjusted spacing */
+    gap: 30px; /* Adjusted spacing */
 }
 
 .qr-image {

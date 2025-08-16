@@ -9,7 +9,7 @@ from .models import UserProfile, FamilyMember, JournalEntry
 from django.core.mail import EmailMessage, send_mail
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction 
-from django.db.models import Q
+from django.db.models import Q,Sum
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -29,6 +29,58 @@ from .utils import format_response_for_chatbot
 from django.utils import timezone
 from datetime import timedelta
 from .models import JournalEntry 
+from .models import RewardTransaction
+from django.utils import timezone
+from .models import RewardTransaction, RewardTier, RewardClaim
+
+def get_total_points(user):
+    return RewardTransaction.objects.filter(user=user).aggregate(
+        s=Sum("points")
+    )["s"] or 0
+
+def ensure_daily_checkin(user, request=None):
+    """Award +50 once per calendar day and optionally push messages."""
+    today = timezone.localdate()
+    obj, created = RewardTransaction.objects.get_or_create(
+        user=user,
+        kind=RewardTransaction.CHECKIN,
+        awarded_on=today,
+        defaults={"points": 50},
+    )
+    if created and request is not None:
+        total = get_total_points(user)
+        messages.success(request, f"🎉 +50 points added for today! Total: {total}")
+
+        # Check newly unlocked tiers and create RewardClaim rows
+        unlocked_now = []
+        for tier in RewardTier.objects.all():
+            if total >= tier.points_required and not RewardClaim.objects.filter(user=user, tier=tier).exists():
+                RewardClaim.objects.create(user=user, tier=tier)   # claimed=False by default
+                unlocked_now.append(tier.title)
+
+        if unlocked_now:
+            names = ", ".join(unlocked_now)
+            messages.success(request, f"🏆 Rewards unlocked: {names}. View them now on the Rewards page!")
+
+@login_required(login_url='login')
+def claim_reward(request, tier_id):
+    tier = get_object_or_404(RewardTier, id=tier_id)
+    total = get_total_points(request.user)
+
+    if total < tier.points_required:
+        messages.error(request, "Not enough points to claim this reward yet.")
+        return redirect("rewards")
+
+    claim, _ = RewardClaim.objects.get_or_create(user=request.user, tier=tier)
+    if claim.claimed:
+        messages.info(request, "You have already claimed this reward.")
+    else:
+        claim.claimed = True
+        claim.claimed_at = timezone.now()
+        claim.save()
+        messages.success(request, f"✅ {tier.title} claimed!")
+
+    return redirect("rewards")
 
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -365,6 +417,8 @@ def login_view(request):
 
         if user is not None:
             login(request, user)
+            ensure_daily_checkin(user, request=request)
+
 
             # Check if the user is new
             user_profile = Profile.objects.get(user=user)
@@ -377,8 +431,74 @@ def login_view(request):
         else:
             messages.error(request, 'Invalid username or password.')
             return redirect('login')
+        
+
 
     return render(request, 'login.html')
+
+@login_required(login_url='login')
+def rewards(request):
+    total_points = get_total_points(request.user)
+
+    today_checked_in = RewardTransaction.objects.filter(
+        user=request.user,
+        kind=RewardTransaction.CHECKIN,
+        awarded_on=timezone.localdate()
+    ).exists()
+
+    # Prefer DB tiers; fall back to defaults if none exist
+    tiers_qs = RewardTier.objects.all()
+    if not tiers_qs.exists():
+        fallback = [
+            {"title": "Free Horlicks", "points_required": 100},
+            {"title": "Free Health Drink", "points_required": 150},
+            {"title": "Free Checkup", "points_required": 200},
+        ]
+        tiers = []
+        for t in fallback:
+            claim = RewardClaim.objects.filter(
+                user=request.user,
+                tier__title=t["title"],
+                tier__points_required=t["points_required"],
+            ).first()
+            unlocked = total_points >= t["points_required"]
+            tiers.append({
+                "id": None,
+                "title": t["title"],
+                "points": t["points_required"],
+                "description": "",
+                "unlocked": unlocked,
+                "remaining": max(0, t["points_required"] - total_points),
+                "claimed": bool(claim and claim.claimed),
+            })
+    else:
+        tiers = []
+        for tier in tiers_qs:
+            claim = RewardClaim.objects.filter(user=request.user, tier=tier).first()
+            unlocked = total_points >= tier.points_required
+            tiers.append({
+                "id": tier.id,
+                "title": tier.title,
+                "points": tier.points_required,
+                "description": tier.description,
+                "unlocked": unlocked,
+                "remaining": max(0, tier.points_required - total_points),
+                "claimed": bool(claim and claim.claimed),
+            })
+
+    profile = UserProfile.objects.filter(user=request.user).first()
+
+    return render(request, "rewards.html", {
+        "total_points": total_points,
+        "today_checked_in": today_checked_in,
+        "tiers": tiers,
+        "profile": profile,
+    })
+
+@login_required(login_url='login')
+def rewards_checkin(request):
+    ensure_daily_checkin(request.user, request=request)
+    return redirect("rewards")
 
 # ✅ User Logout View
 def user_logout(request):
@@ -480,10 +600,6 @@ def notifications(request):
 @login_required(login_url='login')
 def settings(request):
     return render(request, 'settings.html')
-
-@login_required(login_url='login')
-def rewards(request):
-    return render(request, 'rewards.html')
 
 @login_required(login_url='login')
 def symptom(request):

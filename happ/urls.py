@@ -35,6 +35,9 @@ urlpatterns = [
     path('symptom/', views.symptom, name='symptom'),
     path('nomedical/', views.nomedical, name='nomedical'),
     path('tour/', views.tour, name='tour'),
+    path('rewards/checkin/', views.rewards_checkin, name='rewards_checkin'),
+    path('rewards/claim/<int:tier_id>/', views.claim_reward, name='claim_reward'),
+
 
     # ✅ Medications
     path('med_aspirin/', views.med_aspirin, name='med_aspirin'),

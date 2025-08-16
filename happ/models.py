@@ -8,6 +8,52 @@ class Profile(models.Model):
 
     def __str__(self):
         return self.user.username
+    
+class RewardTransaction(models.Model):
+    CHECKIN = "CHECKIN"
+    KIND_CHOICES = (
+        (CHECKIN, "Daily check-in"),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reward_transactions")
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES)
+    points = models.IntegerField(default=0)
+    awarded_on = models.DateField(default=timezone.localdate)  # calendar date
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "kind", "awarded_on"], name="unique_daily_checkin")
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} {self.kind} +{self.points} on {self.awarded_on}"
+
+class RewardTier(models.Model):
+    title = models.CharField(max_length=100)             # e.g. "Free Horlicks"
+    points_required = models.PositiveIntegerField()       # e.g. 100
+    description = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["points_required"]
+
+    def __str__(self):
+        return f"{self.title} ({self.points_required})"
+
+
+class RewardClaim(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reward_claims")
+    tier = models.ForeignKey(RewardTier, on_delete=models.CASCADE)
+    unlocked_at = models.DateTimeField(default=timezone.now)  # when threshold was reached
+    claimed = models.BooleanField(default=False)
+    claimed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ("user", "tier")
+
+    def __str__(self):
+        state = "CLAIMED" if self.claimed else "UNCLAIMED"
+        return f"{self.user.username} - {self.tier.title} [{state}]"
 
 class Doctor(models.Model):
     doctor_user = models.OneToOneField(User, on_delete=models.CASCADE)
