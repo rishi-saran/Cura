@@ -21,7 +21,7 @@
             </div>
     </div>
 
-    <button class="add-fab left" onclick="openModal('appointment-modal')">+</button>
+    <button class="add-fab right" onclick="openModal('appointment-modal')">+</button>
 
     <div id="appointment-modal" class="modal-overlay">
         <div class="modal-content">
@@ -33,18 +33,17 @@
             </div>
             <div class="modal-buttons">
                 <button class="cancel-btn" onclick="closeModal('appointment-modal')">Cancel</button>
-                <button class="save-btn" onclick="addReminder('appointment')">Save</button>
+                <button class="save-btn" onclick="saveReminder('appointment')">Save</button>
             </div>
         </div>
     </div>
     
     <div class="bottom-nav">
-        <a href="{% url 'famil' %}"><img src="{% static 'assets/images/navbar/modules.png' %}" /></a>
+        <a href="{% url 'famil' %}"><img src="{% static 'assets/images/navbar/modules-active.png' %}" /></a>
         <a href="{% url 'leaderboard' %}"><img src="{% static 'assets/images/navbar/graph.png' %}" /></a>
-        <a href="{% url 'notifications' %}"><img src="{% static 'assets/images/navbar/bell-active.png' %}" /></a>
+        <a href="{% url 'notifications' %}"><img src="{% static 'assets/images/navbar/bell.png' %}" /></a>
         <a href="{% url 'settings' %}"><img src="{% static 'assets/images/navbar/settings.png' %}" /></a>
     </div>
-
     {% include 'chatbot.html' %}
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -52,7 +51,5 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
     
     <script src="{% static 'assets/js/firebase-logic.js' %}"></script>
-</body>
-</html>
 </body>
 </html>

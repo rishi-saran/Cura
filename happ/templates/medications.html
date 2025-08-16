@@ -1,9 +1,10 @@
+
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable-no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <title>Medications</title>
     <link rel="stylesheet" href="{% static 'assets/css/styles.css' %}">
     <link rel="stylesheet" href="{% static 'assets/css/medications.css' %}">
@@ -36,7 +37,7 @@
             </div>
             <div class="modal-buttons">
                 <button class="cancel-btn" onclick="closeModal('medication-modal')">Cancel</button>
-                <button class="save-btn" onclick="addReminder('medication')">Save</button>
+                <button class="save-btn" onclick="saveReminder('medication')">Save</button>
             </div>
         </div>
     </div>
@@ -55,7 +56,5 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
     
     <script src="{% static 'assets/js/firebase-logic.js' %}"></script>
-</body>
-</html>
 </body>
 </html>

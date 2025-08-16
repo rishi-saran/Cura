@@ -143,8 +143,8 @@ body {
     bottom: 80px; /* Adjust to be above the nav bar */
     width: 60px;
     height: 60px;
-    background-color: #007bff;
-    color: white;
+    background-color: #7DFFDF;
+    color: #3D2174; /* Text color */
     border-radius: 50%;
     display: flex;
     align-items: center;

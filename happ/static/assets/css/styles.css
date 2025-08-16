@@ -113,8 +113,8 @@ body {
     bottom: 80px; /* Adjust to be safely above the bottom nav bar */
     width: 60px;
     height: 60px;
-    background-color: #0d6efd; /* A nice blue color */
-    color: white;
+    background-color: #7DFFDF; /* A nice teal color */
+    color: #3D2174; /* Text color */
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -231,4 +231,132 @@ body {
 .dynamic-list-container {
     width: 100%;
     padding-bottom: 80px; /* Add space at the bottom */
+}
+
+/* === FINAL STYLING FOR ENTIRE APP (MATCHING YOUR LATEST REQUESTS) === */
+
+/* --- Card Template Styles --- */
+:root {
+    --card: #FFFFFF;        /* Card background is white */
+    --ink: #3D2174;         /* CHANGED: Text color is now your specified purple */
+    --line: #E5E7EB;        /* CHANGED: Divider line is now a soft, professional grey */
+    --radius: 24px;         /* Card rounding */
+}
+
+.template-card {
+    width: 100%;
+    max-width: 680px;
+    background: var(--card);
+    border-radius: var(--radius);
+    color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08); /* Softened the shadow */
+    margin-bottom: 20px;
+}
+
+.card-body {
+    padding: 28px 28px 32px;
+}
+
+.card-title {
+    margin: 0 0 10px;
+    font-weight: 600;
+    font-size: clamp(20px, 3.2vw, 28px);
+    line-height: 1.2;
+    color: var(--ink); /* Ensures title uses the new color */
+}
+
+.card-details p {
+    margin: 4px 0;
+    font-size: 16px;
+    color: var(--ink); /* Ensures details use the new color */
+    opacity: 0.8; /* Makes details slightly lighter than the title */
+}
+
+.card-actions {
+    position: absolute;
+    inset: 18px 18px auto auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.icon-btn {
+    width: 28px; height: 28px; display: grid; place-items: center;
+    border: none; background: transparent; cursor: pointer; padding: 0;
+}
+.icon { width: 24px; height: 24px; fill: var(--ink); }
+.icon-btn:active { transform:scale(.96); }
+
+.card-footer {
+    border-top: 2px solid var(--line); /* CHANGED: Using the new line color */
+    display: flex;
+    width: 100%;
+}
+.footer-btn {
+    flex: 1;
+    padding: 18px 16px;
+    background: transparent;
+    border: 0;
+    font-size: clamp(16px, 2.6vw, 22px);
+    text-transform: capitalize;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+.footer-btn + .footer-btn { border-left: 2px solid var(--line); } /* CHANGED: Using the new line color */
+.footer-btn.done { background-color: rgba(25, 135, 84, 0.1); color: #198754; }
+.footer-btn.skip { background-color: rgba(220, 53, 69, 0.1); color: #dc3545; }
+.footer-btn:hover { filter: brightness(0.95); }
+
+/* --- General App Styles (Modal, FAB, etc.) --- */
+.add-fab {
+    position: fixed; bottom: 80px; width: 60px; height: 60px; background-color: #0d6efd;
+    color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 36px; font-weight: lighter; text-decoration: none; box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    border: none; cursor: pointer; z-index: 1000;
+}
+.add-fab.left { left: 20px; }
+.add-fab.right { right: 20px; }
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6);
+    display: none; justify-content: center; align-items: center; z-index: 2000; padding: 20px; box-sizing: border-box;
+}
+.modal-content {
+    background-color: #fefefe; padding: 25px; border-radius: 15px; width: 100%; max-width: 450px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+.modal-content h3 { margin: 0 0 25px; color: #333; text-align: center; font-size: 22px; }
+.modal-form-inputs { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
+.modal-form-inputs input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+.modal-buttons { display: flex; gap: 10px; }
+.modal-buttons button { flex-grow: 1; padding: 12px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+.save-btn { background-color: #198754; color: white; }
+.cancel-btn { background-color: #6c757d; color: white; }
+.empty-list-message { text-align: center; color: var(--ink); opacity: 0.7; margin: 60px 20px; font-size: 18px; line-height: 1.5; }
+.dynamic-list-container { width: 100%; padding-bottom: 80px; }
+.done-card { filter: saturate(0.2) opacity(0.6); }
+.done-card .card-title, .done-card .card-details p { text-decoration: line-through; }
+/* ADD THIS TO THE END OF STYLES.CSS */
+
+/* Style for cards marked as 'Skipped' */
+.skipped-card {
+    background-color: rgba(220, 53, 69, 0.1); /* Light red background */
+    border-left: 5px solid #dc3545; /* Red left border */
+}
+/* ADD THIS TO THE END OF STYLES.CSS */
+
+/* ADD THIS TO THE END OF STYLES.CSS */
+
+/* Style for cards marked as 'Done' */
+.done-card {
+    filter: saturate(0.2) opacity(0.6); /* Makes it look faded */
+    background-color: rgba(25, 135, 84, 0.05); /* Very light green background */
+}
+
+/* Adds a line-through to the title when done */
+.done-card .card-title, .done-card .card-details p {
+    text-decoration: line-through;
 }
