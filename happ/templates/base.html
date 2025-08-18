@@ -1,48 +1,55 @@
-<!-- templates/base.html -->
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>{% block title %}CURA Health Portal{% endblock %}</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            margin: 2rem;
-            background-color: #f5f7fa;
-        }
-        header {
-            background-color: #007bff;
-            color: white;
-            padding: 1rem;
-            text-align: center;
-            font-size: 1.5rem;
-        }
-        main {
-            margin-top: 2rem;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <title>{% block title %}CURA Health Portal{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 2rem;
+      background-color: #f5f7fa;
+    }
+    header {
+      background-color: #007bff;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.5rem;
+    }
+    main { margin-top: 2rem; }
+  </style>
+  {% block head_extra %}{% endblock %}
 </head>
-<body>
-    <body
-    {% if request.user.is_authenticated %}
-        data-user-id="{{ request.user.id }}"
-    {% endif %}
->
-    <header>
-        CURA Health Dashboard
-    </header>
-    <main>
-        {% block content %}
-        {% endblock %}
-    </main>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
 
-    <script src="{% static 'assets/firebase/firebase-config.js' %}"></script>
+<body{% if request.user.is_authenticated %} data-user-id="{{ request.user.id }}"{% endif %}>
+  <header>CURA Health Dashboard</header>
 
-    <script src="{% static 'assets/js/firebase-logic.js' %}"></script>
-</body>
-</html>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Global modal helpers (safe no-ops if not used) -->
+  <script>
+    (function () {
+      window.openModal = function (modalId) {
+        try { const el = document.getElementById(modalId); if (el) el.style.display = 'flex'; }
+        catch (e) { console.error('openModal error:', e); }
+      };
+      window.closeModal = function (modalId) {
+        try { const el = document.getElementById(modalId); if (el) el.style.display = 'none'; }
+        catch (e) { console.error('closeModal error:', e); }
+      };
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+          const open = document.querySelector('.modal-overlay[style*="display: flex"]');
+          if (open) open.style.display = 'none';
+        }
+      });
+    })();
+  </script>
+
+  {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -1,10 +1,9 @@
+/* static/assets/firebase/firebase-config.js
+   Firebase v8 + Firestore + FCM glue for CURA
+*/
 
-
-
-
-
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
+// --- Firebase config (yours) ---
+var firebaseConfig = {
   apiKey: "AIzaSyA1y2pKLRctvf_CnoHPcEZPPZ74ynBt8vY",
   authDomain: "cura-notification-db-connect.firebaseapp.com",
   projectId: "cura-notification-db-connect",
@@ -13,261 +12,337 @@ const firebaseConfig = {
   appId: "1:921372015026:web:fb8aa6f30700b3ffa38cab",
   measurementId: "G-PBDGYGHXL1"
 };
-// happ/static/assets/js/firebase-logic.js
 
-// --- Make sure your correct firebaseConfig details are pasted here ---
+// Web Push (VAPID) public key (yours)
+var VAPID_PUBLIC_KEY =
+  "BEvrl8qalc2ijbI6Rpg3UyHY4nihaGfVtUwumGbrzsafGaBSkln1lVnFr_q5y6JtyybbS5gdn3AVC_tHc9LAZPA";
 
-
-const app = firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-let currentEditId = null;
-
-function openModal(modalId) {
-    if (!currentEditId) {
-        document.querySelector(`#${modalId}`).querySelectorAll('input').forEach(input => input.value = '');
+// --- Initialize Firebase safely (avoid re-init on navigations) ---
+(function initFirebaseOnce() {
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
     }
-    document.getElementById(modalId).style.display = 'flex';
+    window.firebaseApp = firebase.app();
+    window.db = firebase.firestore();
+  } catch (e) {
+    console.error("Firebase init failed:", e);
+  }
+})();
+
+// Global edit state so inline onclick handlers always see it
+if (typeof window.currentEditId === "undefined") {
+  window.currentEditId = null;
 }
 
-function closeModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
-}
-
-document.addEventListener('DOMContentLoaded', async function() {
-    const body = document.querySelector('body');
-    const djangoUserId = body.dataset.userId;
-    if (!djangoUserId) return;
-
+document.addEventListener("DOMContentLoaded", function () {
+  (async function setupMessaging() {
     try {
-        const messaging = firebase.messaging();
-        await messaging.requestPermission();
-        const fcmToken = await messaging.getToken();
-        if (fcmToken) {
-            const userDocRef = db.collection('users').doc(djangoUserId);
-            await userDocRef.set({ fcmToken: fcmToken }, { merge: true });
+      if (!("serviceWorker" in navigator)) return;
+
+      // Register at site root (must be served at /firebase-messaging-sw.js)
+      var reg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+      await navigator.serviceWorker.ready;
+
+      // Ask permission
+      var permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        console.warn("Notifications permission not granted:", permission);
+        return;
+      }
+
+      var messaging = firebase.messaging();
+
+      // Foreground handler (tab is visible) -> explicitly show a notification
+      messaging.onMessage(function (payload) {
+        console.log("[FCM] foreground message:", payload);
+        var n = payload.notification || {};
+        var title = n.title || "CURA Reminder";
+        var opts = {
+          body: n.body || "You have a scheduled reminder.",
+          icon: n.icon || "/static/assets/images/bell.png",
+          data: payload.data || {}
+        };
+        // Only show if permission ok
+        if (Notification.permission === "granted") {
+          try { new Notification(title, opts); } catch (e) { console.warn("Notification error:", e); }
         }
-    } catch (err) { console.error('Firebase Messaging Error:', err); }
-    
-    loadDynamicData(djangoUserId);
+      });
+
+      // Get/save token
+      var token = await messaging.getToken({
+        vapidKey: VAPID_PUBLIC_KEY,
+        serviceWorkerRegistration: reg
+      });
+
+      var djangoUserId = (document.querySelector("body")?.dataset?.userId) || "";
+      if (token && djangoUserId) {
+        await window.db.collection("users").doc(String(djangoUserId))
+          .set({ fcmToken: token }, { merge: true });
+        console.log("✅ Saved FCM token for user", djangoUserId);
+      }
+
+      if (messaging.onTokenRefresh) {
+        messaging.onTokenRefresh(async function () {
+          try {
+            var newToken = await messaging.getToken({
+              vapidKey: VAPID_PUBLIC_KEY,
+              serviceWorkerRegistration: reg
+            });
+            if (newToken && djangoUserId) {
+              await window.db.collection("users").doc(String(djangoUserId))
+                .set({ fcmToken: newToken }, { merge: true });
+              console.log("🔄 Token refreshed and saved");
+            }
+          } catch (e) { console.error("Token refresh failed:", e); }
+        });
+      }
+    } catch (err) {
+      console.error("Firebase Messaging Error:", err);
+    }
+  })();
+
+  // Load lists if page has a user
+  var uid = (document.querySelector("body")?.dataset?.userId) || "";
+  if (uid && typeof window.loadDynamicData === "function") {
+    window.loadDynamicData(uid);
+  }
 });
 
-async function saveReminder(type) {
-    const djangoUserId = document.querySelector('body').dataset.userId;
-    if (!djangoUserId) return alert("You must be logged in.");
-    let collectionName, modalId;
-    let dataToSave = { userId: djangoUserId };
+/* ---------- CRUD HELPERS (EXPOSED ON window) ---------- */
 
-    try {
-        if (type === 'medication') {
-            collectionName = 'medicationSchedules';
-            modalId = 'medication-modal';
-            dataToSave.name = document.getElementById('med-name-input').value;
-            dataToSave.dosage = document.getElementById('med-dosage-input').value;
-            dataToSave.program = document.getElementById('med-program-input').value;
-            dataToSave.quantity = document.getElementById('med-quantity-input').value;
-            dataToSave.time = document.getElementById('med-time-input').value;
-        } else if (type === 'appointment') {
-            collectionName = 'appointmentSchedules';
-            modalId = 'appointment-modal';
-            dataToSave.doctor = document.getElementById('appt-doctor-input').value;
-            dataToSave.location = document.getElementById('appt-location-input').value;
-            const localDate = document.getElementById('appt-datetime-input').value;
-            dataToSave.datetime = new Date(localDate).toISOString();
-        } else if (type === 'activity') {
-            collectionName = 'activitySchedules';
-            modalId = 'activity-modal';
-            dataToSave.activity = document.getElementById('activity-name-input').value;
-            dataToSave.duration = document.getElementById('activity-duration-input').value;
-            dataToSave.time = document.getElementById('activity-time-input').value;
-        }
-        if (Object.values(dataToSave).some(val => val === "")) return alert("Please fill out all fields.");
-        
-        if (currentEditId) {
-            await db.collection(collectionName).doc(currentEditId).update(dataToSave);
-            alert("Reminder updated successfully!");
-        } else {
-            dataToSave.createdAt = new Date();
-            // ✅ This line ensures every new reminder starts with a 'pending' status
-            dataToSave.status = 'pending';
-            await db.collection(collectionName).add(dataToSave);
-            alert("Reminder saved successfully!");
-        }
-        closeModal(modalId);
-        currentEditId = null;
-    } catch (error) { console.error("ERROR SAVING REMINDER:", error); }
-}
+window.saveReminder = async function saveReminder(type) {
+  var djangoUserId = (document.querySelector("body")?.dataset?.userId) || "";
+  if (!djangoUserId) return alert("You must be logged in.");
 
-async function openEditModal(type, docId) {
-    currentEditId = docId;
-    let collectionName, modalId;
-    if (type === 'medication') { collectionName = 'medicationSchedules'; modalId = 'medication-modal'; }
-    if (type === 'appointment') { collectionName = 'appointmentSchedules'; modalId = 'appointment-modal'; }
-    if (type === 'activity') { collectionName = 'activitySchedules'; modalId = 'activity-modal'; }
+  var collectionName, modalId;
+  var dataToSave = { userId: djangoUserId };
 
-    const doc = await db.collection(collectionName).doc(docId).get();
-    if (!doc.exists) return alert("Could not find reminder to edit.");
-    const data = doc.data();
-
-    if (type === 'medication') {
-        document.getElementById('med-name-input').value = data.name || '';
-        document.getElementById('med-dosage-input').value = data.dosage || '';
-        document.getElementById('med-program-input').value = data.program || '';
-        document.getElementById('med-quantity-input').value = data.quantity || '';
-        document.getElementById('med-time-input').value = data.time || '';
-    } else if (type === 'appointment') {
-        document.getElementById('appt-doctor-input').value = data.doctor || '';
-        document.getElementById('appt-location-input').value = data.location || '';
-        document.getElementById('appt-datetime-input').value = data.datetime ? data.datetime.substring(0, 16) : '';
-    } else if (type === 'activity') {
-        document.getElementById('activity-name-input').value = data.activity || '';
-        document.getElementById('activity-duration-input').value = data.duration || '';
-        document.getElementById('activity-time-input').value = data.time || '';
+  try {
+    if (type === "medication") {
+      collectionName = "medicationSchedules";
+      modalId = "medication-modal";
+      dataToSave.name     = document.getElementById("med-name-input").value;
+      dataToSave.dosage   = document.getElementById("med-dosage-input").value;
+      dataToSave.program  = document.getElementById("med-program-input").value;
+      dataToSave.quantity = document.getElementById("med-quantity-input").value;
+      dataToSave.time     = document.getElementById("med-time-input").value;
+    } else if (type === "appointment") {
+      collectionName = "appointmentSchedules";
+      modalId = "appointment-modal";
+      dataToSave.doctor   = document.getElementById("appt-doctor-input").value;
+      dataToSave.location = document.getElementById("appt-location-input").value;
+      var localDate       = document.getElementById("appt-datetime-input").value;
+      dataToSave.datetime = localDate ? new Date(localDate).toISOString() : "";
+    } else if (type === "activity") {
+      collectionName = "activitySchedules";
+      modalId = "activity-modal";
+      dataToSave.activity = document.getElementById("activity-name-input").value;
+      dataToSave.duration = document.getElementById("activity-duration-input").value;
+      dataToSave.time     = document.getElementById("activity-time-input").value;
+    } else {
+      return alert("Unknown type: " + type);
     }
-    openModal(modalId);
-}
 
-async function deleteReminder(type, docId) {
-    if (!confirm("Are you sure you want to delete this reminder?")) return;
-    let collectionName;
-    if (type === 'medication') collectionName = 'medicationSchedules';
-    if (type === 'appointment') collectionName = 'appointmentSchedules';
-    if (type === 'activity') collectionName = 'activitySchedules';
-    try {
-        await db.collection(collectionName).doc(docId).delete();
-    } catch (error) { console.error("Error deleting reminder: ", error); }
-}
-
-// --- 👇 THIS IS THE ONLY FUNCTION THAT HAS BEEN CHANGED 👇 ---
-async function recordAction(type, docId, action) {
-    let collectionName;
-    if (type === 'medication') {
-        collectionName = 'medicationSchedules';
-    } else if (type === 'appointment') {
-        collectionName = 'appointmentSchedules';
-    } else if (type === 'activity') {
-        collectionName = 'activitySchedules';
+    if (Object.values(dataToSave).some(function (v) { return v === ""; })) {
+      return alert("Please fill out all fields.");
     }
-    
-    // ✅ This is the new logic to update the database
-    try {
-        // Find the specific reminder document by its ID and update the 'status' field
-        await db.collection(collectionName).doc(docId).update({
-            status: action // 'action' will be either "Done" or "Skipped"
+
+    if (window.currentEditId) {
+      await window.db.collection(collectionName).doc(window.currentEditId).update(dataToSave);
+      alert("Reminder updated successfully!");
+    } else {
+      dataToSave.createdAt = new Date();
+      dataToSave.status    = "pending";
+      await window.db.collection(collectionName).add(dataToSave);
+      alert("Reminder saved successfully!");
+    }
+
+    if (typeof window.closeModal === "function") window.closeModal(modalId);
+    window.currentEditId = null;
+  } catch (error) {
+    console.error("ERROR SAVING REMINDER:", error);
+    alert("There was an error saving your reminder.");
+  }
+};
+
+window.openEditModal = async function openEditModal(type, docId) {
+  window.currentEditId = docId;
+
+  var collectionName, modalId;
+  if (type === "medication")      { collectionName = "medicationSchedules";  modalId = "medication-modal"; }
+  else if (type === "appointment"){ collectionName = "appointmentSchedules"; modalId = "appointment-modal"; }
+  else if (type === "activity")   { collectionName = "activitySchedules";    modalId = "activity-modal"; }
+  else return;
+
+  var snap = await window.db.collection(collectionName).doc(docId).get();
+  if (!snap.exists) return alert("Could not find reminder to edit.");
+  var data = snap.data();
+
+  if (type === "medication") {
+    document.getElementById("med-name-input").value     = data.name     || "";
+    document.getElementById("med-dosage-input").value   = data.dosage   || "";
+    document.getElementById("med-program-input").value  = data.program  || "";
+    document.getElementById("med-quantity-input").value = data.quantity || "";
+    document.getElementById("med-time-input").value     = data.time     || "";
+  } else if (type === "appointment") {
+    document.getElementById("appt-doctor-input").value   = data.doctor   || "";
+    document.getElementById("appt-location-input").value = data.location || "";
+    document.getElementById("appt-datetime-input").value = data.datetime ? data.datetime.substring(0,16) : "";
+  } else if (type === "activity") {
+    document.getElementById("activity-name-input").value     = data.activity || "";
+    document.getElementById("activity-duration-input").value = data.duration || "";
+    document.getElementById("activity-time-input").value     = data.time     || "";
+  }
+
+  if (typeof window.openModal === "function") window.openModal(modalId);
+};
+
+window.deleteReminder = async function deleteReminder(type, docId) {
+  if (!confirm("Are you sure you want to delete this reminder?")) return;
+  var collectionName;
+  if (type === "medication")      collectionName = "medicationSchedules";
+  else if (type === "appointment")collectionName = "appointmentSchedules";
+  else if (type === "activity")   collectionName = "activitySchedules";
+  else return;
+
+  try {
+    await window.db.collection(collectionName).doc(docId).delete();
+  } catch (error) { console.error("Error deleting reminder:", error); }
+};
+
+window.recordAction = async function recordAction(type, docId, action) {
+  var collectionName;
+  if (type === "medication")      collectionName = "medicationSchedules";
+  else if (type === "appointment")collectionName = "appointmentSchedules";
+  else if (type === "activity")   collectionName = "activitySchedules";
+  else return;
+
+  try {
+    await window.db.collection(collectionName).doc(docId).update({ status: action });
+    console.log("Reminder", docId, "=>", action);
+  } catch (error) {
+    console.error("Status update failed:", error);
+    alert("Could not update status. See console.");
+  }
+};
+
+/* ---------- Live list rendering ---------- */
+window.loadDynamicData = function loadDynamicData(userId) {
+  var emptyMessage = '<div class="empty-list-message"><p>Press the + button to add a new item.</p></div>';
+  var handleError = function (error, container) {
+    console.error("FIREBASE READ FAILED:", error);
+    container.innerHTML = '<div class="empty-list-message"><p>Error loading data. Check console.</p></div>';
+  };
+
+  // Medications
+  var medContainer = document.getElementById("medication-list-container");
+  if (medContainer) {
+    window.db.collection("medicationSchedules")
+      .where("userId", "==", userId).orderBy("time")
+      .onSnapshot(function (snapshot) {
+        if (snapshot.empty) return medContainer.innerHTML = emptyMessage;
+        medContainer.innerHTML = "";
+        snapshot.forEach(function (d) {
+          var s = d.data();
+          medContainer.innerHTML += `
+            <div class="template-card ${s.status === "Done" ? "done-card" : ""}">
+              <div class="card-actions">
+                <button class="icon-btn" aria-label="delete" onclick="deleteReminder('medication', '${d.id}')">
+                  <svg class="icon" viewBox="0 0 24 24"><path d="M6 7h12v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7zm3-5h6l1 2h4v2H2V4h4l1-2zM9 9h2v9H9V9zm4 0h2v9h-2V9z"/></svg>
+                </button>
+                <button class="icon-btn" aria-label="edit" onclick="openEditModal('medication', '${d.id}')">
+                  <svg class="icon" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </button>
+              </div>
+              <div class="card-body">
+                <h2 class="card-title">${s.name || ""}</h2>
+                <div class="card-details">
+                  <p><strong>Time:</strong> ${s.time || ""}</p>
+                  <p><strong>Dosage:</strong> ${s.dosage || ""}</p>
+                  <p><strong>Program:</strong> ${s.program || ""}</p>
+                </div>
+              </div>
+              <div class="card-footer">
+                <button class="footer-btn done" onclick="recordAction('medication', '${d.id}', 'Done')">Done</button>
+                <button class="footer-btn skip" onclick="recordAction('medication', '${d.id}', 'Skipped')">Skip</button>
+              </div>
+            </div>`;
         });
-        console.log(`Reminder ${docId} successfully marked as ${action}.`);
-    } catch (error) {
-        console.error(`Error marking reminder as ${action}: `, error);
-        alert(`Could not update status. Please check the console for errors.`);
-    }
-}
+      }, function (err) { handleError(err, medContainer); });
+  }
 
+  // Appointments
+  var apptContainer = document.getElementById("appointment-list-container");
+  if (apptContainer) {
+    window.db.collection("appointmentSchedules")
+      .where("userId", "==", userId).orderBy("datetime", "desc")
+      .onSnapshot(function (snapshot) {
+        if (snapshot.empty) return apptContainer.innerHTML = emptyMessage;
+        apptContainer.innerHTML = "";
+        snapshot.forEach(function (d) {
+          var s = d.data();
+          var eventDate = s.datetime ? new Date(s.datetime) : null;
+          apptContainer.innerHTML += `
+            <div class="template-card ${s.status === "Done" ? "done-card" : ""}">
+              <div class="card-actions">
+                <button class="icon-btn" aria-label="delete" onclick="deleteReminder('appointment', '${d.id}')">
+                  <svg class="icon" viewBox="0 0 24 24"><path d="M6 7h12v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7zm3-5h6l1 2h4v2H2V4h4l1-2zM9 9h2v9H9V9zm4 0h2v9h-2V9z"/></svg>
+                </button>
+                <button class="icon-btn" aria-label="edit" onclick="openEditModal('appointment', '${d.id}')">
+                  <svg class="icon" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </button>
+              </div>
+              <div class="card-body">
+                <h2 class="card-title">${s.doctor || ""}</h2>
+                <div class="card-details">
+                  <p><strong>Date:</strong> ${eventDate ? eventDate.toDateString() : ""}</p>
+                  <p><strong>Time:</strong> ${eventDate ? eventDate.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : ""}</p>
+                  <p><strong>Location:</strong> ${s.location || ""}</p>
+                </div>
+              </div>
+              <div class="card-footer">
+                <button class="footer-btn done" onclick="recordAction('appointment', '${d.id}', 'Done')">Done</button>
+                <button class="footer-btn skip" onclick="recordAction('appointment', '${d.id}', 'Skipped')">Skip</button>
+              </div>
+            </div>`;
+        });
+      }, function (err) { handleError(err, apptContainer); });
+  }
 
-function loadDynamicData(userId) {
-    const emptyMessage = '<div class="empty-list-message"><p>Press the + button to add a new item.</p></div>';
-    const handleError = (error, container) => {
-        console.error("FIREBASE READ FAILED:", error);
-        container.innerHTML = `<div class="empty-list-message"><p>Error loading data. Check console.</p></div>`;
-    };
-
-    const medContainer = document.getElementById('medication-list-container');
-    if (medContainer) {
-        db.collection('medicationSchedules').where('userId', '==', userId).orderBy('time').onSnapshot(snapshot => {
-            if (snapshot.empty) return medContainer.innerHTML = emptyMessage;
-            medContainer.innerHTML = '';
-            snapshot.forEach(doc => {
-                const s = doc.data();
-                medContainer.innerHTML += `
-                    <div class="template-card ${s.status === 'Done' ? 'done-card' : ''}">
-                        <div class="card-actions">
-                            <button class="icon-btn" aria-label="delete" onclick="deleteReminder('medication', '${doc.id}')">
-                                <svg class="icon" viewBox="0 0 24 24"><path d="M6 7h12v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7zm3-5h6l1 2h4v2H2V4h4l1-2zM9 9h2v9H9V9zm4 0h2v9h-2V9z"/></svg>
-                            </button>
-                            <button class="icon-btn" aria-label="edit" onclick="openEditModal('medication', '${doc.id}')">
-                                <svg class="icon" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                            </button>
-                        </div>
-                        <div class="card-body">
-                            <h2 class="card-title">${s.name}</h2>
-                            <div class="card-details">
-                                <p><strong>Time:</strong> ${s.time}</p>
-                                <p><strong>Dosage:</strong> ${s.dosage}</p>
-                                <p><strong>Program:</strong> ${s.program}</p>
-                            </div>
-                        </div>
-                        <div class="card-footer">
-                            <button class="footer-btn done" onclick="recordAction('medication', '${doc.id}', 'Done')">Done</button>
-                            <button class="footer-btn skip" onclick="recordAction('medication', '${doc.id}', 'Skipped')">Skip</button>
-                        </div>
-                    </div>`;
-            });
-        }, error => handleError(error, medContainer));
-    }
-
-    const apptContainer = document.getElementById('appointment-list-container');
-    if (apptContainer) {
-        db.collection('appointmentSchedules').where('userId', '==', userId).orderBy('datetime', 'desc').onSnapshot(snapshot => {
-            if (snapshot.empty) return apptContainer.innerHTML = emptyMessage;
-            apptContainer.innerHTML = '';
-            snapshot.forEach(doc => {
-                const s = doc.data();
-                const eventDate = new Date(s.datetime);
-                apptContainer.innerHTML += `
-                    <div class="template-card ${s.status === 'Done' ? 'done-card' : ''}">
-                         <div class="card-actions">
-                            <button class="icon-btn" aria-label="delete" onclick="deleteReminder('appointment', '${doc.id}')">
-                                <svg class="icon" viewBox="0 0 24 24"><path d="M6 7h12v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7zm3-5h6l1 2h4v2H2V4h4l1-2zM9 9h2v9H9V9zm4 0h2v9h-2V9z"/></svg>
-                            </button>
-                            <button class="icon-btn" aria-label="edit" onclick="openEditModal('appointment', '${doc.id}')">
-                                <svg class="icon" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                            </button>
-                        </div>
-                        <div class="card-body">
-                            <h2 class="card-title">${s.doctor}</h2>
-                            <div class="card-details">
-                                <p><strong>Date:</strong> ${eventDate.toDateString()}</p>
-                                <p><strong>Time:</strong> ${eventDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                                <p><strong>Location:</strong> ${s.location}</p>
-                            </div>
-                        </div>
-                        <div class="card-footer">
-                            <button class="footer-btn done" onclick="recordAction('appointment', '${doc.id}', 'Done')">Done</button>
-                            <button class="footer-btn skip" onclick="recordAction('appointment', '${doc.id}', 'Skipped')">Skip</button>
-                        </div>
-                    </div>`;
-            });
-        }, error => handleError(error, apptContainer));
-    }
-
-    const activityContainer = document.getElementById('activity-list-container');
-    if (activityContainer) {
-        db.collection('activitySchedules').where('userId', '==', userId).orderBy('time').onSnapshot(snapshot => {
-            if (snapshot.empty) return activityContainer.innerHTML = emptyMessage;
-            activityContainer.innerHTML = '';
-            snapshot.forEach(doc => {
-                const s = doc.data();
-                activityContainer.innerHTML += `
-                     <div class="template-card ${s.status === 'Done' ? 'done-card' : ''}">
-                         <div class="card-actions">
-                            <button class="icon-btn" aria-label="delete" onclick="deleteReminder('activity', '${doc.id}')">
-                                <svg class="icon" viewBox="0 0 24 24"><path d="M6 7h12v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7zm3-5h6l1 2h4v2H2V4h4l1-2zM9 9h2v9H9V9zm4 0h2v9h-2V9z"/></svg>
-                            </button>
-                            <button class="icon-btn" aria-label="edit" onclick="openEditModal('activity', '${doc.id}')">
-                                <svg class="icon" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                            </button>
-                        </div>
-                        <div class="card-body">
-                            <h2 class="card-title">${s.activity}</h2>
-                            <div class="card-details">
-                                <p><strong>Time:</strong> ${s.time}</p>
-                                <p><strong>Duration:</strong> ${s.duration}</p>
-                            </div>
-                        </div>
-                        <div class="card-footer">
-                            <button class="footer-btn done" onclick="recordAction('activity', '${doc.id}', 'Done')">Done</button>
-                            <button class="footer-btn skip" onclick="recordAction('activity', '${doc.id}', 'Skipped')">Skip</button>
-                        </div>
-                    </div>`;
-            });
-        }, error => handleError(error, activityContainer));
-    }
-}
+  // Activities
+  var actContainer = document.getElementById("activity-list-container");
+  if (actContainer) {
+    window.db.collection("activitySchedules")
+      .where("userId", "==", userId).orderBy("time")
+      .onSnapshot(function (snapshot) {
+        if (snapshot.empty) return actContainer.innerHTML = emptyMessage;
+        actContainer.innerHTML = "";
+        snapshot.forEach(function (d) {
+          var s = d.data();
+          actContainer.innerHTML += `
+            <div class="template-card ${s.status === "Done" ? "done-card" : ""}">
+              <div class="card-actions">
+                <button class="icon-btn" aria-label="delete" onclick="deleteReminder('activity', '${d.id}')">
+                  <svg class="icon" viewBox="0 0 24 24"><path d="M6 7h12v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7zm3-5h6l1 2h4v2H2V4h4l1-2zM9 9h2v9H9V9zm4 0h2v9h-2V9z"/></svg>
+                </button>
+                <button class="icon-btn" aria-label="edit" onclick="openEditModal('activity', '${d.id}')">
+                  <svg class="icon" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </button>
+              </div>
+              <div class="card-body">
+                <h2 class="card-title">${s.activity || ""}</h2>
+                <div class="card-details">
+                  <p><strong>Time:</strong> ${s.time || ""}</p>
+                  <p><strong>Duration:</strong> ${s.duration || ""}</p>
+                </div>
+              </div>
+              <div class="card-footer">
+                <button class="footer-btn done" onclick="recordAction('activity', '${d.id}', 'Done')">Done</button>
+                <button class="footer-btn skip" onclick="recordAction('activity', '${d.id}', 'Skipped')">Skip</button>
+              </div>
+            </div>`;
+        });
+      }, function (err) { handleError(err, actContainer); });
+  }
+};

@@ -2,68 +2,79 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>My Family</title>
-    <link rel="stylesheet" href="{% static 'assets/css/styles.css' %}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+  <title>My Family</title>
+
+  <link rel="stylesheet" href="{% static 'assets/css/styles.css' %}">
+
+  <!-- Firebase v8 SDKs (must come before your firebase-config.js) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
+
+  <!-- Your Firebase code -->
+  <script src="{% static 'assets/firebase/firebase-config.js' %}"></script>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>👋 Hi {{ user.username }}!</h1>
-            {% if profile.photo %}
-                <img src="{{ profile.photo.url }}" alt="Profile Picture">
-            {% else %}
-                <img src="{% static 'assets/images/profile.png' %}" alt="Profile Picture">
-            {% endif %}
-        </div>
 
-        <h2 style="color: #432c81;">My Family</h2>
-
-        <div class="family-section">
-            <!-- ✅ Primary User (Me) -->
-            {% if profile %}
-                <a href="{% url 'home' %}" class="family-card">
-                    <h3>Me</h3>
-                    {% if profile.photo %}
-                        <img src="{{ profile.photo.url }}" alt="Me">
-                    {% else %}
-                        <img src="{% static 'assets/images/office-man.png' %}" alt="Me">
-                    {% endif %}
-                </a>
-            {% endif %}
-
-            <!-- ✅ Family Members -->
-            {% for member in family_members %}
-                <a href="{% url 'home' member.id %}" class="family-card">
-                    <h3>{{ member.name }} ({{ member.relationship }})</h3>
-                    {% if member.photo %}
-                        <img src="{{ member.photo.url }}" alt="{{ member.name }}">
-                    {% else %}
-                        <img src="{% static 'assets/images/default-avatar.png' %}" alt="{{ member.name }}">
-                    {% endif %}
-                </a>
-            {% endfor %}
-        </div>
+<body data-user-id="{{ request.user.id|default:'' }}">
+  <div class="container">
+    <div class="header">
+      <h1>👋 Hi {{ user.username }}!</h1>
+      {% if profile.photo %}
+        <img src="{{ profile.photo.url }}" alt="Profile Picture">
+      {% else %}
+        <img src="{% static 'assets/images/profile.png' %}" alt="Profile Picture">
+      {% endif %}
     </div>
 
-    <div class="bottom-nav">
-        <a href="{% url 'famil' %}"><img src="{% static 'assets/images/navbar/modules-active.png' %}"></a>
-        <a href="{% url 'leaderboard' %}"><img src="{% static 'assets/images/navbar/graph.png' %}"></a>
-        <a href="{% url 'notifications' %}"><img src="{% static 'assets/images/navbar/bell.png' %}"></a>
-        <a href="{% url 'settings' %}"><img src="{% static 'assets/images/navbar/settings.png' %}"></a>
+    <h2 style="color: #432c81;">My Family</h2>
+
+    <div class="family-section">
+      {% if profile %}
+        <a href="{% url 'home' %}" class="family-card">
+          <h3>Me</h3>
+          {% if profile.photo %}
+            <img src="{{ profile.photo.url }}" alt="Me">
+          {% else %}
+            <img src="{% static 'assets/images/office-man.png' %}" alt="Me">
+          {% endif %}
+        </a>
+      {% endif %}
+
+      {% for member in family_members %}
+        <a href="{% url 'home' member.id %}" class="family-card">
+          <h3>{{ member.name }} ({{ member.relationship }})</h3>
+          {% if member.photo %}
+            <img src="{{ member.photo.url }}" alt="{{ member.name }}">
+          {% else %}
+            <img src="{% static 'assets/images/default-avatar.png' %}" alt="{{ member.name }}">
+          {% endif %}
+        </a>
+      {% endfor %}
     </div>
+  </div>
 
-    <script src="{% static 'assets/js/scripts.js' %}"></script>
-    {% include 'chatbot.html'%}
+  <div class="bottom-nav">
+    <a href="{% url 'famil' %}"><img src="{% static 'assets/images/navbar/modules-active.png' %}"></a>
+    <a href="{% url 'leaderboard' %}"><img src="{% static 'assets/images/navbar/graph.png' %}"></a>
+    <a href="{% url 'notifications' %}"><img src="{% static 'assets/images/navbar/bell.png' %}"></a>
+    <a href="{% url 'settings' %}"><img src="{% static 'assets/images/navbar/settings.png' %}"></a>
+  </div>
 
-{% if messages %}
-  {% for message in messages %}
-    <script>
-      alert("{{ message|escapejs }}");
-    </script>
-  {% endfor %}
-{% endif %}
-    
+  <script src="{% static 'assets/js/scripts.js' %}"></script>
+  {% include 'chatbot.html' %}
+
+  {% if messages %}
+    {% for message in messages %}
+      <script>alert("{{ message|escapejs }}");</script>
+    {% endfor %}
+  {% endif %}
+
+  <!-- Fallback helpers -->
+  <script>
+    window.openModal = window.openModal || function (id) { const el = document.getElementById(id); if (el) el.style.display = 'flex'; };
+    window.closeModal = window.closeModal || function (id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+  </script>
 </body>
 </html>

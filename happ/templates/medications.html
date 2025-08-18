@@ -1,60 +1,68 @@
-
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>Medications</title>
-    <link rel="stylesheet" href="{% static 'assets/css/styles.css' %}">
-    <link rel="stylesheet" href="{% static 'assets/css/medications.css' %}">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Medications</title>
+
+  <link rel="stylesheet" href="{% static 'assets/css/styles.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/medications.css' %}">
+
+  <!-- Firebase v8 SDKs (must come BEFORE your firebase-config.js) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
+
+  <!-- Your Firebase init + messaging/token code -->
+  <script src="{% static 'assets/firebase/firebase-config.js' %}"></script>
 </head>
-<body data-user-id="{{ request.user.id | default:'' }}">
-    <div class="container">
-        <header>
-            <div><a href="{% url 'home' %}" class="back-button">&#8592;</a></div>
-            <div class="title-card">
-                <h1>Medications</h1>
-                <img src="{% static 'assets/images/medi.png' %}" alt="Profile pic">
-            </div>
-        </header>
-        
-        <div id="medication-list-container" class="dynamic-list-container">
-            </div>
+
+<body data-user-id="{{ request.user.id|default:'' }}">
+  <div class="container">
+    <header>
+      <div><a href="{% url 'home' %}" class="back-button">&#8592;</a></div>
+      <div class="title-card">
+        <h1>Medications</h1>
+        <img src="{% static 'assets/images/medi.png' %}" alt="Profile pic">
+      </div>
+    </header>
+
+    <div id="medication-list-container" class="dynamic-list-container"></div>
+  </div>
+
+  <button class="add-fab left" onclick="openModal('medication-modal')">+</button>
+
+  <div id="medication-modal" class="modal-overlay" style="display:none">
+    <div class="modal-content">
+      <h3>Add New Medication</h3>
+      <div class="modal-form-inputs">
+        <input type="text" id="med-name-input" placeholder="Medication Name">
+        <input type="text" id="med-dosage-input" placeholder="Dosage (e.g., 250mg)">
+        <input type="text" id="med-program-input" placeholder="Program (e.g., After Breakfast)">
+        <input type="number" id="med-quantity-input" placeholder="Quantity (e.g., 1)">
+        <input type="time" id="med-time-input">
+      </div>
+      <div class="modal-buttons">
+        <button class="cancel-btn" onclick="closeModal('medication-modal')">Cancel</button>
+        <button class="save-btn" onclick="saveReminder('medication')">Save</button>
+      </div>
     </div>
+  </div>
 
-    <button class="add-fab left" onclick="openModal('medication-modal')">+</button>
+  <div class="bottom-nav">
+    <a href="{% url 'famil' %}"><img src="{% static 'assets/images/navbar/modules-active.png' %}" /></a>
+    <a href="{% url 'leaderboard' %}"><img src="{% static 'assets/images/navbar/graph.png' %}" /></a>
+    <a href="{% url 'notifications' %}"><img src="{% static 'assets/images/navbar/bell.png' %}" /></a>
+    <a href="{% url 'settings' %}"><img src="{% static 'assets/images/navbar/settings.png' %}" /></a>
+  </div>
 
-    <div id="medication-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h3>Add New Medication</h3>
-            <div class="modal-form-inputs">
-                <input type="text" id="med-name-input" placeholder="Medication Name">
-                <input type="text" id="med-dosage-input" placeholder="Dosage (e.g., 250mg)">
-                <input type="text" id="med-program-input" placeholder="Program (e.g., After Breakfast)">
-                <input type="number" id="med-quantity-input" placeholder="Quantity (e.g., 1)">
-                <input type="time" id="med-time-input">
-            </div>
-            <div class="modal-buttons">
-                <button class="cancel-btn" onclick="closeModal('medication-modal')">Cancel</button>
-                <button class="save-btn" onclick="saveReminder('medication')">Save</button>
-            </div>
-        </div>
-    </div>
+  {% include 'chatbot.html' %}
 
-    <div class="bottom-nav">
-        <a href="{% url 'famil' %}"><img src="{% static 'assets/images/navbar/modules-active.png' %}" /></a>
-        <a href="{% url 'leaderboard' %}"><img src="{% static 'assets/images/navbar/graph.png' %}" /></a>
-        <a href="{% url 'notifications' %}"><img src="{% static 'assets/images/navbar/bell.png' %}" /></a>
-        <a href="{% url 'settings' %}"><img src="{% static 'assets/images/navbar/settings.png' %}" /></a>
-    </div>
-
-    {% include 'chatbot.html' %}
-
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
-    
-    <script src="{% static 'assets/js/firebase-logic.js' %}"></script>
+  <!-- Fallback helpers (only define if base.html wasn't used) -->
+  <script>
+    window.openModal = window.openModal || function (id) { const el = document.getElementById(id); if (el) el.style.display = 'flex'; };
+    window.closeModal = window.closeModal || function (id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+  </script>
 </body>
 </html>

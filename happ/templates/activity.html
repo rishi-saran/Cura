@@ -2,55 +2,65 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>My Activities</title>
-    <link rel="stylesheet" href="{% static 'assets/css/styles.css' %}">
-    <link rel="stylesheet" href="{% static 'assets/css/activity.css' %}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+  <title>My Activities</title>
+
+  <link rel="stylesheet" href="{% static 'assets/css/styles.css' %}">
+  <link rel="stylesheet" href="{% static 'assets/css/activity.css' %}">
+
+  <!-- Firebase v8 SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
+
+  <!-- Your Firebase init -->
+  <script src="{% static 'assets/firebase/firebase-config.js' %}"></script>
 </head>
-<body data-user-id="{{ request.user.id | default:'' }}">
-    <div class="container">
-        <div class="header">
-            <a href="{% url 'home' %}" class="back-button">&#8592;</a>
-            <div class="title-card">
-                <h1>My Activities</h1>
-                <img src="{% static 'assets/images/activity.png' %}" alt="Activity Icon">
-            </div>
-        </div>
 
-        <div id="activity-list-container" class="dynamic-list-container">
-            </div>
+<body data-user-id="{{ request.user.id|default:'' }}">
+  <div class="container">
+    <div class="header">
+      <a href="{% url 'home' %}" class="back-button">&#8592;</a>
+      <div class="title-card">
+        <h1>My Activities</h1>
+        <img src="{% static 'assets/images/activity.png' %}" alt="Activity Icon">
+      </div>
     </div>
 
-    <button class="add-fab right" onclick="openModal('activity-modal')">+</button>
-    
-    <div id="activity-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h3>Add New Activity</h3>
-            <div class="modal-form-inputs">
-                <input type="text" id="activity-name-input" placeholder="Activity Name (e.g., Evening Walk)">
-                <input type="text" id="activity-duration-input" placeholder="Duration (e.g., 30 minutes)">
-                <input type="time" id="activity-time-input">
-            </div>
-            <div class="modal-buttons">
-                <button class="cancel-btn" onclick="closeModal('activity-modal')">Cancel</button>
-                <button class="save-btn" onclick="saveReminder('activity')">Save</button>
-            </div>
-        </div>
-    </div>
+    <div id="activity-list-container" class="dynamic-list-container"></div>
+  </div>
 
-    <div class="bottom-nav">
-        <a href="{% url 'famil' %}"><img src="{% static 'assets/images/navbar/modules-active.png' %}" /></a>
-        <a href="{% url 'leaderboard' %}"><img src="{% static 'assets/images/navbar/graph.png' %}" /></a>
-        <a href="{% url 'notifications' %}"><img src="{% static 'assets/images/navbar/bell.png' %}" /></a>
-        <a href="{% url 'settings' %}"><img src="{% static 'assets/images/navbar/settings.png' %}" /></a>
-    </div>
-    {% include 'chatbot.html' %}
+  <button class="add-fab right" onclick="openModal('activity-modal')">+</button>
 
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
-    
-    <script src="{% static 'assets/js/firebase-logic.js' %}"></script>
+  <div id="activity-modal" class="modal-overlay" style="display:none">
+    <div class="modal-content">
+      <h3>Add New Activity</h3>
+      <div class="modal-form-inputs">
+        <input type="text" id="activity-name-input" placeholder="Activity Name (e.g., Evening Walk)">
+        <input type="text" id="activity-duration-input" placeholder="Duration (e.g., 30 minutes)">
+        <input type="time" id="activity-time-input">
+      </div>
+      <div class="modal-buttons">
+        <button class="cancel-btn" onclick="closeModal('activity-modal')">Cancel</button>
+        <button class="save-btn" onclick="saveReminder('activity')">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <a href="{% url 'famil' %}"><img src="{% static 'assets/images/navbar/modules-active.png' %}" /></a>
+    <a href="{% url 'leaderboard' %}"><img src="{% static 'assets/images/navbar/graph.png' %}" /></a>
+    <a href="{% url 'notifications' %}"><img src="{% static 'assets/images/navbar/bell.png' %}" /></a>
+    <a href="{% url 'settings' %}"><img src="{% static 'assets/images/navbar/settings.png' %}" /></a>
+  </div>
+
+  {% include 'chatbot.html' %}
+
+  <!-- Fallback helpers -->
+  <script>
+    window.openModal = window.openModal || function (id) { const el = document.getElementById(id); if (el) el.style.display = 'flex'; };
+    window.closeModal = window.closeModal || function (id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+  </script>
 </body>
 </html>
