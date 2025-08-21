@@ -899,24 +899,37 @@ def view_user_and_family(request, user_id):
     }
 
     for member in family_members:
-        latest_entry = JournalEntry.objects.filter(family_member=member).order_by("-timestamp").first()
-        if latest_entry:
-            # FIX: Use pain_level instead of chest_pain
-            pain_score = pain_map.get(latest_entry.pain_level, 0)
-            emergency_score = emergency_map.get(latest_entry.emergency, 0)
+        recent_entries = JournalEntry.objects.filter(family_member=member).order_by("-timestamp")[:10]
+        
+        max_pain_score = 0
+        max_emergency_score = 0
+        latest_timestamp = None
 
-            if pain_score >= 8:
-                alert_messages.append({
-                    "member": member.name,
-                    "message": "⚠️ Severe pain reported.",
-                    "timestamp": latest_entry.timestamp
-                })
-            if emergency_score == 10:
-                alert_messages.append({
-                    "member": member.name,
-                    "message": "🚨 Emergency-level symptoms recorded.",
-                    "timestamp": latest_entry.timestamp
-                })
+        for entry in recent_entries:
+            pain_score = pain_map.get(entry.chest_pain, 0)
+            emergency_score = emergency_map.get(entry.emergency, 0)
+
+            if pain_score > max_pain_score:
+                max_pain_score = pain_score
+                latest_timestamp = entry.timestamp
+
+            if emergency_score > max_emergency_score:
+                max_emergency_score = emergency_score
+                latest_timestamp = entry.timestamp
+
+        if max_pain_score >= 8:
+            alert_messages.append({
+                "member": member.name,
+                "message": "⚠️ Severe chest pain reported.",
+                "timestamp": latest_timestamp
+            })
+
+        if max_emergency_score == 10:
+            alert_messages.append({
+                "member": member.name,
+                "message": "🚨 Emergency-level symptoms recorded.",
+                "timestamp": latest_timestamp
+            })
 
     return render(request, 'doctor/user_and_family.html', {
         'user_obj': user,
