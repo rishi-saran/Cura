@@ -641,7 +641,24 @@ def med_schedule(request):
 
 @login_required(login_url='login')
 def medications(request):
-    return render(request, 'medications.html')
+    """
+    /medications?user=<mainUserId>[&member=<familyMemberId>]
+    """
+    main_user_id = request.GET.get('user') or str(request.user.id)
+    member_id = request.GET.get('member')
+
+    # Ensure the main_user_id is actually the logged-in user
+    if not UserProfile.objects.filter(user=request.user, user_id=main_user_id).exists():
+        main_user_id = str(request.user.id)
+
+    valid_member_id = None
+    if member_id and FamilyMember.objects.filter(id=member_id, user_id=main_user_id).exists():
+        valid_member_id = str(member_id)
+
+    return render(request, 'medications.html', {
+        'med_user_id': str(main_user_id),
+        'med_member_id': valid_member_id,  # None for main user
+    })
 
 # ✅ Tour Page (Only for First-Time Users)
 @login_required(login_url='login')

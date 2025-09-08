@@ -6,19 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0" />
   <title>Appointments</title>
 
+  <!-- keep your base styles -->
   <link rel="stylesheet" href="{% static 'assets/css/styles.css' %}">
-  <link rel="stylesheet" href="{% static 'assets/css/activity.css' %}"><!-- reuse Activity look -->
-
-  <!-- Defensive styles in case activity.css misses these classes -->
-  <style>
-    .dynamic-list-container { display: flex; flex-direction: column; gap: 10px; padding: 0 4px; }
-    .list-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-radius: 12px; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.06); }
-    .item-left { display: flex; flex-direction: column; gap: 4px; }
-    .item-title { font-weight: 700; color: #3a2370; }
-    .item-sub { font-size: 12px; color: #4b3d79; opacity: .85; }
-    .item-right { display: flex; align-items: center; gap: 8px; }
-    .time-chip { font-size: 12px; padding: 6px 10px; border-radius: 9999px; background: #eef3ff; }
-  </style>
+  <!-- use the same card system as medications -->
+  <link rel="stylesheet" href="{% static 'assets/css/medications.css' %}">
 
   <!-- Firebase v8 SDKs -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -27,6 +18,21 @@
 
   <!-- Your Firebase init -->
   <script src="{% static 'assets/firebase/firebase-config.js' %}"></script>
+
+  <style>
+    /* page-specific tiny tweaks only */
+    .dynamic-list-container { width: 100%; padding-bottom: 80px; }
+    .title-card {
+      background-color: #7DFFDF; border-radius: 15px; display: flex; align-items: center; justify-content: center;
+      padding: 15px; width: 90%; max-width: 350px; margin: 10px auto; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      text-align: center; box-sizing: border-box;
+    }
+    .title-card h1 { margin: 0; font-size: 20px; }
+    .title-card img { width: 40px; height: 40px; margin-left: 10px; }
+    .header { display:flex; flex-direction:column; align-items:center; gap:6px; margin-bottom: 12px; }
+    .back-button { text-decoration:none; font-size:24px; color:#3D2174; position:absolute; left:15px; top:10px; }
+    .empty-text { text-align:center; color:#888; margin: 24px 0; }
+  </style>
 </head>
 
 <body
@@ -36,24 +42,20 @@
   
   <div class="container">
     <div class="header">
-      {% if is_family %}
-        <a href="{% url 'famil' %}" class="back-button">&#8592;</a>
-      {% else %}
-        <a href="{% url 'home' user_profile.user.id %}" class="back-button">&#8592;</a>
-      {% endif %}
+      <a href="{% url 'home' %}" class="back-button" id="backBtn">&#8592;</a>
       <div class="title-card">
         <h1>My Appointments</h1>
         <img src="{% static 'assets/images/activity.png' %}" alt="Calendar Icon">
       </div>
     </div>
 
-    <!-- Activity-style list container -->
     <div id="appointment-list" class="dynamic-list-container">
       <p class="empty-text">Loading appointments...</p>
     </div>
   </div>
 
   <script>
+  // --- FETCH (unchanged logic) ---
   async function fetchAppointments() {
     const listEl = document.getElementById('appointment-list');
     const firebaseId = document.body.getAttribute('data-firebase-id');
@@ -73,7 +75,6 @@
         .where('userId', '==', userIdToUse)
         .where('familyMemberId', '==', familyFilterValue);
 
-      // Try ordered (best); if Firestore asks for index, fall back
       try {
         const snap = await ref.orderBy('datetime', 'desc').get();
         renderSnap(snap, listEl);
@@ -92,13 +93,17 @@
     }
   }
 
+  // --- RENDER HELPERS ---
   function renderSnap(snap, container) {
     if (snap.empty) {
       container.innerHTML = '<p class="empty-text">No appointments scheduled.</p>';
       return;
     }
     container.innerHTML = '';
-    snap.forEach(doc => container.appendChild(rowFromData(doc.data())));
+    snap.forEach(doc => {
+      const el = cardFromData({ id: doc.id, ...doc.data() });
+      container.appendChild(el);
+    });
   }
 
   function renderArray(arr, container) {
@@ -107,30 +112,82 @@
       return;
     }
     container.innerHTML = '';
-    arr.forEach(d => container.appendChild(rowFromData(d)));
+    arr.forEach(d => container.appendChild(cardFromData(d)));
   }
 
-  // Activity-style row (title + sub + right chip)
-  function rowFromData(data) {
+  // --- CARD (medications-style) ---
+  function cardFromData(data) {
     const dt = data?.datetime ? new Date(data.datetime) : null;
     const when = dt
-      ? dt.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      ? dt.toLocaleString('en-US', { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
       : '-';
 
-    const row = document.createElement('div');
-    row.className = 'list-item';
-    row.innerHTML = `
-      <div class="item-left">
-        <div class="item-title">${escapeHtml(data.doctorName || 'Doctor')}</div>
-        <div class="item-sub">
-          ${escapeHtml(data.location || '-')}${data.reason ? ' • ' + escapeHtml(data.reason) : ' • Appointment'}
+    const doctor = escapeHtml(data.doctorName || data.doctor || 'Doctor');
+    const location = escapeHtml(data.location || '-');
+    const reasonText = data.reason ? String(data.reason) : 'Appointment';
+
+    const card = document.createElement('article');
+    card.className = 'template-card';
+    card.dataset.docId = data.id || '';     // <-- keep the Firestore document id
+    card.dataset.status = data.status || ''; // optional for quick reads
+
+    // initial visual state from backend status
+    if (data.status === 'Done') card.classList.add('done-card');
+    if (data.status === 'Skipped') card.classList.add('skipped-card');
+
+    card.innerHTML = `
+      <div class="card-body">
+        <h3 class="card-title">${doctor}</h3>
+        <div class="card-details">
+          <p><strong>When:</strong> ${when}</p>
+          <p><strong>Where:</strong> ${location}</p>
+          <p><strong>Notes:</strong> ${escapeHtml(reasonText)}</p>
         </div>
+        <div class="card-actions" aria-hidden="true"></div>
       </div>
-      <div class="item-right">
-        <span class="time-chip">${when}</span>
+      <div class="card-footer">
+        <button class="footer-btn done" type="button" onclick="markDone(this)">Done</button>
+        <button class="footer-btn skip" type="button" onclick="markSkipped(this)">Skip</button>
       </div>
     `;
-    return row;
+    return card;
+  }
+
+  // --- Backend status updates + UI sync ---
+  async function updateAppointmentStatus(docId, newStatus, cardEl) {
+    try {
+      await window.db.collection('appointmentSchedules').doc(docId).update({ status: newStatus });
+      // reflect UI
+      if (newStatus === 'Done') {
+        cardEl.classList.add('done-card');
+        cardEl.classList.remove('skipped-card');
+        cardEl.setAttribute('data-state', 'done');
+      } else if (newStatus === 'Skipped') {
+        cardEl.classList.add('skipped-card');
+        cardEl.classList.remove('done-card');
+        cardEl.setAttribute('data-state', 'skipped');
+      } else {
+        cardEl.classList.remove('skipped-card','done-card');
+        cardEl.setAttribute('data-state', 'default');
+      }
+    } catch (err) {
+      console.error('Status update failed:', err);
+      alert('Could not update status. Please try again.');
+    }
+  }
+
+  function markDone(btn) {
+    const card = btn.closest('.template-card');
+    const docId = card?.dataset?.docId;
+    if (!docId) return;
+    updateAppointmentStatus(docId, 'Done', card);
+  }
+
+  function markSkipped(btn) {
+    const card = btn.closest('.template-card');
+    const docId = card?.dataset?.docId;
+    if (!docId) return;
+    updateAppointmentStatus(docId, 'Skipped', card);
   }
 
   // small sanitiser for safety
@@ -140,5 +197,41 @@
 
   document.addEventListener('DOMContentLoaded', fetchAppointments);
   </script>
+  <script>
+  (function () {
+    var btn = document.getElementById('backBtn');
+    if (!btn) return;
+
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+
+      var fallback = "{% url 'home' %}";
+      var ref = document.referrer;
+
+      try {
+        var hasRef = !!ref;
+        var sameOrigin = hasRef && new URL(ref, window.location.origin).origin === window.location.origin;
+
+        // Prefer exact referrer if same-origin and not the current page
+        if (sameOrigin && ref !== window.location.href) {
+          window.location.assign(ref);
+          return;
+        }
+
+        // As a secondary option, try browser history if available
+        if (window.history.length > 1) {
+          window.history.back();
+          return;
+        }
+      } catch (_) {
+        // ignore and fall through to fallback
+      }
+
+      // Final fallback: go to /home/
+      window.location.assign(fallback);
+    });
+  })();
+</script>
+
 </body>
 </html>

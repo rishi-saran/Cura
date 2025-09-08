@@ -4,29 +4,40 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-  />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>{{ profile.name }}'s Journal Entries</title>
   <style>
     html, body { max-width:100%; overflow-x:hidden; }
     body { font-family:'Segoe UI', sans-serif; background:#f5f7fa; padding:1.2rem; margin:0; }
-    .topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; gap:.5rem; }
     .back-arrow { font-size:30px; color:#3a2370; text-decoration:none; padding-left:5px; transition:.2s; }
     .back-arrow:hover { transform:translateX(-4px); }
-    .btn { padding:.6rem .9rem; background:#28a745; color:#fff; border-radius:8px; text-decoration:none; font-weight:600; }
+    .btn { padding:.6rem .9rem; background:#28a745; color:#fff; border-radius:8px; text-decoration:none; font-weight:600; cursor:pointer; border:none; }
     h2 { color:#222; font-size:22px; margin:0; }
     .entry-card { background:#fff; border-left:4px solid #28a745; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,.05); padding:1rem 1.2rem; margin-bottom:1rem; }
     a.view-link { display:inline-block; margin-top:.5rem; text-decoration:none; color:#007bff; }
     a.view-link:hover { text-decoration:underline; }
+
+    /* Modal */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:1000; }
+    .modal-content { background:#fff; width:90%; max-width:420px; border-radius:12px; padding:20px; box-shadow:0 6px 16px rgba(0,0,0,.2); }
+    .modal-content h3 { margin:0 0 12px; color:#3a2370; }
+    .modal-form-inputs { display:flex; flex-direction:column; gap:12px; margin:12px 0 18px; }
+    .modal-form-inputs input { padding:12px; border:1px solid #ddd; border-radius:8px; }
+    .modal-buttons { display:flex; justify-content:flex-end; gap:10px; }
+    .cancel-btn { background:#eee; color:#333; border:none; padding:10px 16px; border-radius:8px; cursor:pointer; }
+    .save-btn { background:#3a2370; color:#fff; border:none; padding:10px 16px; border-radius:8px; cursor:pointer; }
   </style>
 </head>
 <body>
   <div class="topbar">
     <a href="{% url 'view_user_and_family' profile.user.id %}" class="back-arrow">&#8592;</a>
     <h2>Journal Entries – {{ profile.name }}</h2>
-    <a class="btn" href="{% url 'doctor_add_note_for_user' profile.user.id %}">Give Notes</a>
+    <div style="display:flex; gap:8px">
+      <a class="btn" href="{% url 'doctor_add_note_for_user' profile.user.id %}">Give Notes</a>
+      <!-- NEW: Add Medication -->
+      <button class="btn" type="button" onclick="openMedModal()">Add Medication</button>
+    </div>
   </div>
 
   {% if journal_entries %}
@@ -41,5 +52,60 @@
   {% else %}
     <p>No journal entries found for {{ profile.name }}.</p>
   {% endif %}
+
+  <!-- NEW: Medication Modal -->
+  <div id="med-modal" class="modal-overlay">
+    <div class="modal-content">
+      <h3>Add Medication for {{ profile.name }}</h3>
+      <div class="modal-form-inputs">
+        <input id="med-name" placeholder="Medication Name" />
+        <input id="med-dosage" placeholder="Dosage (e.g., 250mg)" />
+        <input id="med-program" placeholder="Program (e.g., After Breakfast)" />
+        <input id="med-quantity" type="number" placeholder="Quantity (e.g., 1)" />
+        <input id="med-time" type="time" />
+      </div>
+      <div class="modal-buttons">
+        <button class="cancel-btn" onclick="closeMedModal()">Cancel</button>
+        <button class="save-btn" onclick="saveMedicationMain()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase & config for writes -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="{% static 'assets/firebase/firebase-config.js' %}"></script>
+
+  <script>
+    function openMedModal(){ document.getElementById('med-modal').style.display='flex'; }
+    function closeMedModal(){ document.getElementById('med-modal').style.display='none'; }
+
+    async function saveMedicationMain() {
+      const data = {
+        name:     document.getElementById('med-name').value.trim(),
+        dosage:   document.getElementById('med-dosage').value.trim(),
+        program:  document.getElementById('med-program').value.trim(),
+        quantity: document.getElementById('med-quantity').value.trim(),
+        time:     document.getElementById('med-time').value,
+        status:   'pending',
+        createdAt: new Date(),
+        userId:   String({{ profile.user.id }}),   // main user id
+        familyMemberId: null                    // main user => null
+      };
+
+      if (!data.name || !data.dosage || !data.program || !data.quantity || !data.time) {
+        alert('Please fill out all fields.'); return;
+      }
+
+      try {
+        await window.db.collection('medicationSchedules').add(data);
+        closeMedModal();
+        alert('Medication added.');
+      } catch (e) {
+        console.error('Add medication failed:', e);
+        alert('Error adding medication. See console.');
+      }
+    }
+  </script>
 </body>
 </html>

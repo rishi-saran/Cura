@@ -18,10 +18,15 @@
   <script src="{% static 'assets/firebase/firebase-config.js' %}"></script>
 </head>
 
-<body data-user-id="{{ request.user.id|default:'' }}">
+<body
+  data-user-id="{{ request.user.id|default:'' }}"
+  data-main-user-id="{{ med_user_id|default:'' }}"
+  data-family-member-id="{{ med_member_id|default:'' }}"
+>
+
   <div class="container">
     <header>
-      <div><a href="{% url 'home' %}" class="back-button">&#8592;</a></div>
+      <div><a href="#" id="js-back" class="back-button" aria-label="Back">&#8592;</a></div>
       <div class="title-card">
         <h1>Medications</h1>
         <img src="{% static 'assets/images/medi.png' %}" alt="Profile pic">
@@ -31,24 +36,9 @@
     <div id="medication-list-container" class="dynamic-list-container"></div>
   </div>
 
-  <button class="add-fab left" onclick="openModal('medication-modal')">+</button>
-
-  <div id="medication-modal" class="modal-overlay" style="display:none">
-    <div class="modal-content">
-      <h3>Add New Medication</h3>
-      <div class="modal-form-inputs">
-        <input type="text" id="med-name-input" placeholder="Medication Name">
-        <input type="text" id="med-dosage-input" placeholder="Dosage (e.g., 250mg)">
-        <input type="text" id="med-program-input" placeholder="Program (e.g., After Breakfast)">
-        <input type="number" id="med-quantity-input" placeholder="Quantity (e.g., 1)">
-        <input type="time" id="med-time-input">
-      </div>
-      <div class="modal-buttons">
-        <button class="cancel-btn" onclick="closeModal('medication-modal')">Cancel</button>
-        <button class="save-btn" onclick="saveReminder('medication')">Save</button>
-      </div>
-    </div>
-  </div>
+  <!-- Hide patient self-add UI -->
+  <button class="add-fab left" style="display:none" onclick="openModal('medication-modal')">+</button>
+  <div id="medication-modal" class="modal-overlay" style="display:none"></div>
 
   <div class="bottom-nav">
     <a href="{% url 'famil' %}"><img src="{% static 'assets/images/navbar/modules-active.png' %}" /></a>
@@ -58,11 +48,207 @@
   </div>
 
   {% include 'chatbot.html' %}
-
-  <!-- Fallback helpers (only define if base.html wasn't used) -->
   <script>
-    window.openModal = window.openModal || function (id) { const el = document.getElementById(id); if (el) el.style.display = 'flex'; };
-    window.closeModal = window.closeModal || function (id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
-  </script>
+  (function () {
+    // Make back arrow behave like "go to previously visited page"
+    var backEl = document.getElementById('js-back');
+    if (!backEl) return;
+
+    backEl.addEventListener('click', function (e) {
+      e.preventDefault();
+      var fallback = "{% url 'home' %}"; // always fallback to /home/
+
+      var ref = document.referrer || "";
+      try {
+        var refUrl = new URL(ref);
+        // Only go back if the referrer is same-origin (prevents bouncing to other sites)
+        if (ref && refUrl.origin === window.location.origin) {
+          history.back();
+        } else {
+          window.location.href = fallback;
+        }
+      } catch (err) {
+        // If referrer is not a valid URL, just go to fallback
+        window.location.href = fallback;
+      }
+    });
+  })();
+</script>
+
+  <script>
+  (function () {
+    // Wait until firebase-config and its DOMContentLoaded handler have fired
+    window.addEventListener('load', initMedsFiltering);
+
+    async function initMedsFiltering() {
+      // Read IDs from our data attributes (set by the Django view from ?user & ?member)
+      var mainUserId     = document.body.dataset.mainUserId || "";
+      var familyMemberId = document.body.dataset.familyMemberId || ""; // empty means main user
+
+      var container = document.getElementById("medication-list-container");
+      if (!container) return;
+
+      if (!mainUserId) {
+        container.innerHTML = '<div class="empty-list-message"><p>Error: user not found.</p></div>';
+        return;
+      }
+
+      // Build the exact same filter pattern you used for Appointments:
+      // userId == main, familyMemberId == (null for main user, or member id for family)
+      var ref = window.db.collection("medicationSchedules")
+        .where("userId", "==", String(mainUserId))
+        .where("familyMemberId", "==", (familyMemberId ? String(familyMemberId) : null));
+
+      // Live updates (like other pages)
+      try {
+        ref.orderBy("time").onSnapshot(function (snap) {
+          if (snap.empty) {
+            container.innerHTML = '<div class="empty-list-message"><p>No medications found.</p></div>';
+            return;
+          }
+          container.innerHTML = "";
+          snap.forEach(function (doc) {
+            var s = doc.data();
+            container.innerHTML += renderMedicationCard(doc.id, s);
+          });
+        }, function (err) {
+          console.warn("Ordered meds query failed; fallback:", err && err.message);
+          // Fallback without orderBy (still filtered correctly)
+          ref.onSnapshot(function (snap) {
+            if (snap.empty) {
+              container.innerHTML = '<div class="empty-list-message"><p>No medications found.</p></div>';
+              return;
+            }
+            // Manual sort by time (string compare is fine for HH:MM)
+            var items = [];
+            snap.forEach(function (d) { items.push({ id: d.id, ...d.data() }); });
+            items.sort(function (a, b) {
+              return String(a.time || "").localeCompare(String(b.time || ""));
+            });
+            container.innerHTML = "";
+            items.forEach(function (s) {
+              container.innerHTML += renderMedicationCard(s.id, s);
+            });
+          });
+        });
+      } catch (e) {
+        console.error("Medications init failed:", e);
+        container.innerHTML = '<div class="empty-list-message"><p>Error loading medications.</p></div>';
+      }
+    }
+
+    function renderMedicationCard(docId, s) {
+      var stateClass = s.status === "Done" ? "done-card" : (s.status === "Skipped" ? "skipped-card" : "");
+      return `
+        <div class="template-card ${stateClass}">
+          <div class="card-actions">
+            <button class="icon-btn" aria-label="delete" onclick="deleteReminder('medication', '${docId}')">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M6 7h12v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7zm3-5h6l1 2h4v2H2V4h4l1-2zM9 9h2v9H9V9zm4 0h2v9h-2V9z"/></svg>
+            </button>
+            <button class="icon-btn" aria-label="edit" onclick="openEditModal('medication', '${docId}')">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            </button>
+          </div>
+          <div class="card-body">
+            <h2 class="card-title">${escapeHtml(s.name || "")}</h2>
+            <div class="card-details">
+              <p><strong>Time:</strong> ${escapeHtml(s.time || "")}</p>
+              <p><strong>Dosage:</strong> ${escapeHtml(s.dosage || "")}</p>
+              <p><strong>Program:</strong> ${escapeHtml(s.program || "")}</p>
+              <p><strong>Qty:</strong> ${escapeHtml(s.quantity || "")}</p>
+            </div>
+          </div>
+          <div class="card-footer">
+            <button class="footer-btn done" onclick="recordAction('medication', '${docId}', 'Done')">Done</button>
+            <button class="footer-btn skip" onclick="recordAction('medication', '${docId}', 'Skipped')">Skip</button>
+          </div>
+        </div>`;
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, function (m) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m];
+      });
+    }
+  })();
+</script>
+
+  <script>
+  document.addEventListener("DOMContentLoaded", function() {
+    var medContainer = document.getElementById("medication-list-container");
+
+    // Prefer IDs provided by the server (from ?user & ?member)
+    var mainUserId     = document.body.dataset.mainUserId || document.body.dataset.userId || "";
+    var familyMemberId = document.body.dataset.familyMemberId || null; // null means main user
+
+    if (!mainUserId) {
+      medContainer.innerHTML = '<div class="empty-list-message"><p>Error: user not found.</p></div>';
+      return;
+    }
+
+    var ref = window.db.collection("medicationSchedules")
+      .where("userId", "==", String(mainUserId))
+      .where("familyMemberId", "==", (familyMemberId ? String(familyMemberId) : null));
+
+    (async function load() {
+      try {
+        const snap = await ref.orderBy("time").get();
+        renderSnap(snap);
+      } catch (e) {
+        console.warn("Ordered meds query failed; fallback:", e && e.message);
+        const snap = await ref.get();
+        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+          .sort((a,b) => String(a.time || "").localeCompare(String(b.time || "")));
+        renderArray(docs);
+      }
+    })();
+
+    function renderMedicationCard(docId, s) {
+      return `
+        <div class="template-card ${s.status === "Done" ? "done-card" : (s.status === "Skipped" ? "skipped-card" : "")}">
+          <div class="card-actions">
+            <button class="icon-btn" aria-label="delete" onclick="deleteReminder('medication', '${docId}')">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M6 7h12v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7zm3-5h6l1 2h4v2H2V4h4l1-2zM9 9h2v9H9V9zm4 0h2v9h-2V9z"/></svg>
+            </button>
+            <button class="icon-btn" aria-label="edit" onclick="openEditModal('medication', '${docId}')">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            </button>
+          </div>
+          <div class="card-body">
+            <h2 class="card-title">${s.name || ""}</h2>
+            <div class="card-details">
+              <p><strong>Time:</strong> ${s.time || ""}</p>
+              <p><strong>Dosage:</strong> ${s.dosage || ""}</p>
+              <p><strong>Program:</strong> ${s.program || ""}</p>
+              <p><strong>Qty:</strong> ${s.quantity || ""}</p>
+            </div>
+          </div>
+          <div class="card-footer">
+            <button class="footer-btn done" onclick="recordAction('medication', '${docId}', 'Done')">Done</button>
+            <button class="footer-btn skip" onclick="recordAction('medication', '${docId}', 'Skipped')">Skip</button>
+          </div>
+        </div>`;
+    }
+
+    function renderSnap(snap) {
+      if (snap.empty) {
+        medContainer.innerHTML = '<div class="empty-list-message"><p>No medications found.</p></div>';
+        return;
+      }
+      medContainer.innerHTML = "";
+      snap.forEach(d => medContainer.innerHTML += renderMedicationCard(d.id, d.data()));
+    }
+
+    function renderArray(arr) {
+      if (!arr.length) {
+        medContainer.innerHTML = '<div class="empty-list-message"><p>No medications found.</p></div>';
+        return;
+      }
+      medContainer.innerHTML = "";
+      arr.forEach(s => medContainer.innerHTML += renderMedicationCard(s.id, s));
+    }
+  });
+</script>
+
 </body>
 </html>
