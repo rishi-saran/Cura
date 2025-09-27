@@ -43,6 +43,17 @@
 
                 <label>Primary Location</label>
                 <input type="text" name="location" placeholder="Enter location" required>
+                <label for="patient_code">8-digit Patient Code</label>
+                <input
+                type="text"
+                id="patient_code"
+                name="patient_code"
+                inputmode="numeric"
+                pattern="\d{8}"
+                maxlength="8"
+                placeholder="Enter your unique 8-digit code"
+                autocomplete="off"
+                />
 
                 <label>Emergency Contact</label>
                 <input type="text" name="emergency" placeholder="Enter emergency contact" required>

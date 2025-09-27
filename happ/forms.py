@@ -23,7 +23,16 @@ class DoctorSignupForm(forms.ModelForm):
 class UserProfileForm(forms.ModelForm):
     class Meta:
         model = UserProfile
-        fields = ['name', 'age', 'gender', 'dob', 'phone', 'email', 'location', 'emergency_contact', 'photo', 'unique_id']
+        fields = ['name', 'age', 'gender', 'dob', 'phone', 'email', 'location', 'emergency_contact', 'photo', 'unique_id', 'patient_code']
+        widgets = {
+            'patient_code': forms.TextInput(attrs={
+                'placeholder': '8-digit code',
+                'inputmode': 'numeric',
+                'pattern': r'\d{8}',
+                'maxlength': '8',
+                'autocomplete': 'off',
+            })
+        }
 
 class FamilyMemberForm(forms.ModelForm):
     class Meta:

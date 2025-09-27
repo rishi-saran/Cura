@@ -32,6 +32,19 @@
                 </span>
                 <input type="text" name="unique_id" placeholder="Enter Unique ID shared with your doctor" required class="input-field">
             </div>
+            <label for="patient_code">8-digit Patient Code</label>
+            <input
+            type="text"
+            id="patient_code"
+            name="patient_code"
+            inputmode="numeric"
+            pattern="\d{8}"
+            maxlength="8"
+            placeholder="Enter your unique 8-digit code"
+            autocomplete="off"
+            class="input-field"
+            />
+
             <button type="submit" class="signup-button">Sign Up</button>
         </form>
 

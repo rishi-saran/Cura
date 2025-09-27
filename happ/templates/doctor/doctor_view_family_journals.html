@@ -6,39 +6,127 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>{{ member.name }}'s Journal Entries</title>
-  <style>
-    html, body { max-width:100%; overflow-x:hidden; }
-    body { font-family:sans-serif; background:#f5f7fa; padding:1.2rem; margin:0; }
-    .topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; gap:.5rem; }
-    .back-arrow { font-size:30px; color:#3a2370; text-decoration:none; padding-left:5px; transition:.2s; }
-    .back-arrow:hover { transform:translateX(-4px); }
-    .btn { padding:.6rem .9rem; background:#28a745; color:#fff; border-radius:8px; text-decoration:none; font-weight:600; cursor:pointer; border:none; }
-    h2 { color:#333; font-size:22px; margin:0; }
-    .entry-card { background:#fff; border-left:5px solid #28a745; margin-bottom:1rem; padding:1rem; box-shadow:0 2px 5px rgba(0,0,0,0.05); border-radius:8px; }
-    a.view-link { display:inline-block; margin-top:.5rem; text-decoration:none; color:#007bff; }
-    a.view-link:hover { text-decoration:underline; }
+<style>
+  /* Page base */
+  html, body { max-width:100%; overflow-x:hidden; }
+  body { font-family:'Segoe UI', sans-serif; background:#f5f7fa; padding:1.2rem; margin:0; }
 
-    /* Modal */
-    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:1000; }
-    .modal-content { background:#fff; width:90%; max-width:420px; border-radius:12px; padding:20px; box-shadow:0 6px 16px rgba(0,0,0,.2); }
-    .modal-content h3 { margin:0 0 12px; color:#3a2370; }
-    .modal-form-inputs { display:flex; flex-direction:column; gap:12px; margin:12px 0 18px; }
-    .modal-form-inputs input { padding:12px; border:1px solid #ddd; border-radius:8px; }
-    .modal-buttons { display:flex; justify-content:flex-end; gap:10px; }
-    .cancel-btn { background:#eee; color:#333; border:none; padding:10px 16px; border-radius:8px; cursor:pointer; }
-    .save-btn { background:#3a2370; color:#fff; border:none; padding:10px 16px; border-radius:8px; cursor:pointer; }
-  </style>
+  /* Header / Back */
+  .topbar{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap:.75rem; margin-bottom:.5rem;
+  }
+  .back-arrow{ font-size:30px; color:#3a2370; text-decoration:none; padding-left:5px; transition:.2s; }
+  .back-arrow:hover{ transform:translateX(-4px); }
+
+  /* Title sits below the toolbar */
+  h2{ color:#222; font-size:22px; margin:.25rem 0 0; }
+
+  /* Journal card */
+  .entry-card{
+    background:#fff; border-left:4px solid #28a745; border-radius:8px;
+    box-shadow:0 2px 6px rgba(0,0,0,.05); padding:1rem 1.2rem; margin-bottom:1rem;
+  }
+  a.view-link{ display:inline-block; margin-top:.5rem; text-decoration:none; color:#007bff; }
+  a.view-link:hover{ text-decoration:underline; }
+
+  /* ---------- Toolbar (right, one line) ---------- */
+  .action-group{
+    display:flex; align-items:center; justify-content:flex-end;
+    gap:8px; flex-wrap:nowrap; /* force horizontal line */
+  }
+
+  /* Outline-only buttons (sleek, perfectly centered) */
+  .btn,
+  .btn-ghost{
+    background:transparent;
+    color:#3a2370;
+    border:1.5px solid #3a2370;
+    border-radius:9999px;              /* pill style */
+    display:inline-flex;                /* center text both axes */
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    line-height:1.15;
+    white-space:nowrap;                 /* keep on one line */
+    padding:.48rem .78rem;              /* balanced pill padding */
+    font-weight:600;
+    cursor:pointer;
+    box-shadow:none;
+    transition:background .15s ease, border-color .15s ease, transform .05s ease;
+  }
+
+  /* Subtle mint hover using #7DFFDF; still feels "no fill" */
+  .btn:hover,
+  .btn-ghost:hover{
+    background: rgba(125,255,223,0.18); /* #7DFFDF @ ~18% */
+    border-color:#2f1f70;
+  }
+  .btn:active,
+  .btn-ghost:active{
+    transform:translateY(1px);
+  }
+
+  /* Compact on small phones but keep one row */
+  @media (max-width: 420px){
+    .action-group{ gap:6px; }
+    .action-group .btn,
+    .action-group .btn-ghost{
+      padding:.4rem .6rem; font-size:13px;
+    }
+  }
+  /* remove link underlines for pill buttons */
+a.btn,
+a.btn-ghost{
+  text-decoration: none;
+}
+
+/* keep it off on hover/visited, and add an accessible focus ring */
+a.btn:hover,
+a.btn-ghost:hover,
+a.btn:visited,
+a.btn-ghost:visited{
+  text-decoration: none;
+}
+
+.btn:focus-visible,
+.btn-ghost:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(125,255,223,.55); /* #7DFFDF focus ring */
+  border-color: #2f1f70;
+}
+
+  /* Modal (unchanged) */
+  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:1000; }
+  .modal-content{ background:#fff; width:90%; max-width:420px; border-radius:12px; padding:20px; box-shadow:0 6px 16px rgba(0,0,0,.2); }
+  .modal-content h3{ margin:0 0 12px; color:#3a2370; }
+  .modal-form-inputs{ display:flex; flex-direction:column; gap:12px; margin:12px 0 18px; }
+  .modal-form-inputs input{ padding:12px; border:1px solid #ddd; border-radius:8px; }
+  .modal-buttons{ display:flex; justify-content:flex-end; gap:10px; }
+  .cancel-btn{ background:#eee; color:#333; border:none; padding:10px 16px; border-radius:8px; cursor:pointer; }
+  .save-btn{ background:#3a2370; color:#fff; border:none; padding:10px 16px; border-radius:8px; cursor:pointer; }
+</style>
+
+
+
 </head>
 <body>
   <div class="topbar">
     <a href="{% url 'view_user_and_family' member.user.id %}" class="back-arrow">&#8592;</a>
-    <div style="display:flex; gap:8px">
+    <!-- <div style="display:flex; gap:8px">
       <a class="btn" href="{% url 'doctor_add_note_for_family' member.id %}">Give Notes</a>
-      <!-- NEW: Add Medication -->
+
       <button class="btn" type="button" onclick="openMedModal()">Add Medication</button>
-    </div>
+    </div> -->
+    <div style="display:flex; gap:8px" class="action-group">
+    <a style="text-align: center;" class="btn" href="{% url 'doctor_add_note_for_family' member.id %}">Notes</a>
+    <button class="btn" type="button" onclick="openMedModal()">Medication</button>
+    <!-- NEW -->
+    <button class="btn btn-ghost" type="button" onclick="openActModal()">Activity</button>
+</div>
+
   </div>
-  <h2>Journal Entries – {{ member.name }} ({{ member.relationship }})</h2>
+  <h2 style="margin-bottom: 10px;">Journal Entries – {{ member.name }} ({{ member.relationship }})</h2>
 
   {% if journal_entries %}
     {% for entry in journal_entries %}
@@ -67,6 +155,21 @@
       <div class="modal-buttons">
         <button class="cancel-btn" onclick="closeMedModal()">Cancel</button>
         <button class="save-btn" onclick="saveMedicationFamily()">Save</button>
+      </div>
+    </div>
+  </div>
+  <!-- NEW: Activity Modal -->
+  <div id="act-modal" class="modal-overlay">
+    <div class="modal-content">
+      <h3>Add Activity for {{ member.name }}</h3>
+      <div class="modal-form-inputs">
+        <input id="act-name" placeholder="Activity (e.g., Evening Walk)" />
+        <input id="act-duration" placeholder="Duration (e.g., 30 minutes)" />
+        <input id="act-time" type="time" />
+      </div>
+      <div class="modal-buttons">
+        <button class="cancel-btn" onclick="closeActModal()">Cancel</button>
+        <button class="save-btn" onclick="saveActivityFamily()">Save</button>
       </div>
     </div>
   </div>
@@ -106,6 +209,31 @@
         alert('Error adding medication. See console.');
       }
     }
+
+    function openActModal(){ document.getElementById('act-modal').style.display='flex'; }
+  function closeActModal(){ document.getElementById('act-modal').style.display='none'; }
+
+  async function saveActivityFamily() {
+    const data = {
+      name:     document.getElementById('act-name').value.trim(),
+      duration: document.getElementById('act-duration').value.trim(),
+      time:     document.getElementById('act-time').value,
+      status:   'pending',
+      createdAt: new Date(),
+      userId:   String({{ member.user.id }}),   // main user id
+      familyMemberId: String({{ member.id }})   // specific family member
+    };
+    if (!data.name || !data.duration || !data.time) { alert('Please fill out all fields.'); return; }
+    try {
+      await window.db.collection('activitySchedules').add(data);
+      closeActModal();
+      alert('Activity added.');
+    } catch (e) {
+      console.error('Add activity failed:', e);
+      alert('Error adding activity. See console.');
+    }
+  }
+
   </script>
 </body>
 </html>

@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.core.validators import RegexValidator
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -81,6 +82,15 @@ class UserProfile(models.Model):
     assigned_doctor = models.ForeignKey(Doctor, on_delete=models.SET_NULL, null=True, blank=True)
     unique_id = models.CharField(max_length=50, null=True, blank=True)
     is_new = models.BooleanField(default=True)
+    # 8-digit patient code entered by the user (e.g., SG national-style ID without letters)
+    patient_code = models.CharField(
+        max_length=8,
+        unique=True,
+        null=True, blank=True,          # keeps rollout easy for existing users
+        db_index=True,
+        validators=[RegexValidator(r'^\d{8}$', 'Enter exactly 8 digits.')]
+    )
+
 
 
     def __str__(self):

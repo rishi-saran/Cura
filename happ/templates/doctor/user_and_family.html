@@ -21,11 +21,18 @@
             padding: 20px;
         }
 
-        h2 {
-            color: #3a2370;
-            font-size: 26px;
-            margin-bottom: 30px;
+        h2{
+        color:#3a2370;
+        font-size:26px;
+        margin-bottom:30px;
+
+        /* NEW: keep title + badge perfectly aligned */
+        display:flex;
+        align-items:center;   /* vertical centering */
+        gap:12px;             /* space between title and badge */
+        flex-wrap:wrap;       /* let it wrap on very small screens */
         }
+
 
         .card-list {
             display: flex;
@@ -181,29 +188,49 @@
             background-color: #3a2370;
             color: #fff;
         }
+        .pill-id{
+        display:inline-flex;            /* center text inside the pill */
+        align-items:center;
+        justify-content:center;
+        height:26px;                    /* consistent pill height */
+        padding:0 10px;                 /* only horizontal padding */
+        line-height:1;                  /* remove baseline offset */
+        margin-left:0;                  /* gap on h2 handles spacing */
+
+        font-size:12px; color:#666;
+        background:#f3f4f8;
+        border:1px solid #e5e6ee;
+        border-radius:9999px;
+        }
+
+        
+
     </style>
 </head>
 
 <body>
     <div class="container">
         <a href="{% url 'doctor_dashboard' %}" class="back-arrow">&#8592;</a>
-        <h2>{{ user_obj.user.username }} & Family</h2>
+        <h2 >{{ user_obj.user.username }} & Family {% if user_obj.patient_code %}
+        <span class="pill-id">ID: {{ user_obj.patient_code }}</span>
+        {% endif %}</h2>
+        
 
         <div class="card-list">
             {% if user_obj %}
             <div class="card" onclick="navigateToJournals(event, '{% url 'doctor_view_journals' user_obj.user.id %}')">
                 <span class="label">{{ user_obj.user.username }}</span>
-                <button class="add-appt-btn"
+                <!-- <button class="add-appt-btn"
                     onclick="openApptModal('{{ user_obj.user.id }}', '{{ user_obj.name }}', true)">Add
-                    Appointment</button>
+                    Appointment</button> -->
             </div>
             {% endif %}
 
             {% for member in family_members %}
             <div class="card" onclick="navigateToJournals(event, '{% url 'doctor_view_family_journals' member.id %}')">
                 <span class="label">{{ member.name }}</span>
-                <button class="add-appt-btn" onclick="openApptModal('{{ member.id }}', '{{ member.name }}', false)">Add
-                    Appointment</button>
+                <!-- <button class="add-appt-btn" onclick="openApptModal('{{ member.id }}', '{{ member.name }}', false)">Add
+                    Appointment</button> -->
             </div>
             {% empty %}
             <p class="empty-text">No family members added yet.</p>

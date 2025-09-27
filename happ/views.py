@@ -311,6 +311,7 @@ def add_profile(request):
         profile.email = request.POST.get('email', '')
         profile.location = request.POST.get('location', '')
         profile.emergency_contact = request.POST.get('emergency', '')
+        profile.patient_code = request.POST.get('patient_code') or None
 
         if 'photo' in request.FILES:
             profile.photo = request.FILES['photo']
@@ -395,6 +396,9 @@ def signup_view(request):
         # 3. Link doctor by unique ID
         assign_doctor_by_unique_id(profile)  
         messages.success(request, 'Account created successfully! Please log in.')
+        profile.patient_code = request.POST.get('patient_code') or None
+        profile.save()
+
         return redirect('login')
 
     return render(request, 'signup.html')

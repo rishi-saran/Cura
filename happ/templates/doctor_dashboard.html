@@ -10,7 +10,20 @@
     <!-- 👇 Drop this in your static folder as shown below -->
     <link rel="stylesheet" href="{% static 'assets/css/doctor_dashboard.css' %}">
 </head>
+<style>
+    .id-badge{
+    display:inline-block;
+    margin-top:6px;
+    padding:4px 10px;
+    font-size:12px;
+    color:#414056;
+    background:#eef0f5;
+    border:1px solid #d9dbe7;
+    border-radius:9999px; /* pill */
+    letter-spacing:.2px;
+    }
 
+</style>
 <body>
     <div class="container">
         <!-- ─── Greeting ─────────────────────────────────────────── -->
@@ -34,12 +47,14 @@
             {% for pat in patients %}
             <a href="{% url 'view_user_and_family' pat.user.id %}" class="family-card">
                 <h3>{{ pat.user.username|title }}</h3>
+                {% if pat.patient_code %}<span class="id-badge">ID: {{ pat.patient_code }}</span>{% endif %}
                 {% if pat.photo %}
                 <img src="{{ pat.photo.url }}" alt="{{ pat.user.username }}">
                 {% else %}
                 <img src="{% static 'assets/images/default-avatar.png' %}" alt="{{ pat.user.username }}">
                 {% endif %}
             </a>
+
 
             {% endfor %}
             {% else %}
