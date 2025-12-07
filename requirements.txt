@@ -29,7 +29,8 @@ jsonpointer==3.0.0
 kiwisolver==1.4.5
 langchain==0.3.26
 langchain-community==0.3.26
-langchain-core==0.3.66
+langchain-core==1.1.1
+langchain-openai==1.1.0
 langchain-text-splitters==0.3.8
 langsmith==0.4.1
 marshmallow==3.26.1
@@ -38,7 +39,7 @@ mongoengine==0.29.1
 multidict==6.5.0
 mypy_extensions==1.1.0
 numpy==1.26.4
-openai==1.91.0
+openai==2.9.0
 orjson==3.10.18
 packaging==24.0
 pillow==10.3.0
@@ -65,7 +66,6 @@ typing-inspect==0.9.0
 typing-inspection==0.4.1
 typing_extensions==4.14.0
 urllib3==2.4.0
+uuid_utils==0.12.0
 yarl==1.20.1
 zstandard==0.23.0
-# testing
-#testing by banu
